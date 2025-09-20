@@ -43,8 +43,8 @@ const PRESETS: Record<"easy" | "normal" | "hard", Partial<Config>> = {
 };
 
 const DEFAULT_CONFIG: Config = {
-  SCREEN_WIDTH: window.innerWidth,
-  SCREEN_HEIGHT: window.innerHeight,
+  SCREEN_WIDTH: 1280,
+  SCREEN_HEIGHT: 720,
   GAME_TIME: 30,
   FIRE_INTERVAL: 200,
   NORMAL_TARGET_COUNT: 40,
@@ -149,7 +149,7 @@ const ShootingGame: React.FC = () => {
         const g = gameRef.current;
 
         p.setup = () => {
-          const c = p.createCanvas(window.innerWidth, window.innerHeight);
+          const c = p.createCanvas(typeof window !== 'undefined' ? window.innerWidth : DEFAULT_CONFIG.SCREEN_WIDTH, typeof window !== 'undefined' ? window.innerHeight : DEFAULT_CONFIG.SCREEN_HEIGHT);
           p.pixelDensity(1);
           if (canvasParentRef.current) c.parent(canvasParentRef.current);
           p.textAlign(p.CENTER, p.CENTER);
@@ -186,8 +186,8 @@ const ShootingGame: React.FC = () => {
         // 画面サイズ変更時にキャンバスと座標系を同期
         p.windowResized = () => {
           try {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
+            const w = typeof window !== 'undefined' ? window.innerWidth : DEFAULT_CONFIG.SCREEN_WIDTH;
+            const h = typeof window !== 'undefined' ? window.innerHeight : DEFAULT_CONFIG.SCREEN_HEIGHT;
             p.pixelDensity(1);
             p.resizeCanvas(w, h);
           } catch {}
