@@ -1,5 +1,35 @@
 import { addScore, readScores } from "../score";
 
+/**
+ * /api/scores route
+ *
+ * POST /api/scores
+ *   Body (application/json):
+ *     - user_name: string (required)
+ *     - score: number (required)
+ *     - game_title: string (optional, default: "kingyo-sukui")
+ *   Responses:
+ *     - 201: Created (returns created row JSON)
+ *     - 400: Validation error
+ *     - 500: Server error
+ *
+ * GET /api/scores
+ *   Query parameters:
+ *     - limit: number (optional, default: 10)
+ *     - user_name: string (optional)
+ *     - game_title: string (optional)
+ *     - created_from: ISO datetime string (optional)
+ *     - created_to: ISO datetime string (optional)
+ *     - min_score: number (optional)
+ *     - max_score: number (optional)
+ *     - orderBy: "score" | "created_at" (optional, default: score)
+ *     - ascending: boolean ("true" | "false" | "1" | "0") (optional, default: false)
+ *   Responses:
+ *     - 200: OK (returns array of rows)
+ *     - 400: Validation error
+ *     - 500: Server error
+ */
+
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -11,6 +41,15 @@ export function OPTIONS() {
 }
 
 export async function POST(req: Request) {
+    /**
+     * POST /api/scores
+     * Body JSON:
+     *   {
+     *     "user_name": string,        // required
+     *     "score": number,            // required
+     *     "game_title"?: string       // optional, default "kingyo-sukui"
+     *   }
+     */
     try {
         const body = await req.json().catch(() => ({}));
         const { user_name, game_title, score } = body as {
@@ -46,6 +85,21 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
+    /**
+     * GET /api/scores
+     * Query examples:
+     *   /api/scores?limit=20&user_name=taro&orderBy=created_at&ascending=true
+     * Supported query params:
+     *   - limit: number
+     *   - user_name: string
+     *   - game_title: string
+     *   - created_from: ISO string (e.g. 2025-09-19T00:00:00.000Z)
+     *   - created_to: ISO string
+     *   - min_score: number
+     *   - max_score: number
+     *   - orderBy: "score" | "created_at"
+     *   - ascending: boolean ("true"|"false"|"1"|"0")
+     */
     try {
         const url = new URL(req.url);
         const sp = url.searchParams;
