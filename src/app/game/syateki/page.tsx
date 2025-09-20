@@ -118,7 +118,7 @@ const ShootingGame: React.FC = () => {
     spawnQueue: [],
     nextSpawnTime: 0,
     spawnInterval: 0,
-    isMuted: false,
+    isMuted: true,
     soundReady: false,
   });
 
@@ -132,21 +132,19 @@ const ShootingGame: React.FC = () => {
     let p5Instance: any;
     let mounted = true;
 
+    // サウンドは無効化（p5.sound は読み込まない）
+
     (async () => {
       if (!mounted) return;
       // @ts-ignore - p5 の型解決は環境により不安定なため無視
       const p5 = (await import("p5")).default;
-      // p5.sound は必ずしもモジュール解決できないためベストエフォート
-      try {
-        // @ts-ignore - モジュール宣言がないため無視
-        await import("p5/lib/addons/p5.sound");
-      } catch(e) {
-        console.warn("p5.sound の読み込みに失敗。サウンドは無効化します", e);
-      }
+      // p5.sound は CDN ロードに任せる（ここでは import しない）
 
       const sketch = (p:any) => {
         // --- util (React state を触らずに gameRef 経由で高速更新) ---
         const g = gameRef.current;
+
+        // サウンドは無効化するため初期化処理は行わない
 
         p.setup = () => {
           const c = p.createCanvas(typeof window !== 'undefined' ? window.innerWidth : DEFAULT_CONFIG.SCREEN_WIDTH, typeof window !== 'undefined' ? window.innerHeight : DEFAULT_CONFIG.SCREEN_HEIGHT);
@@ -157,20 +155,7 @@ const ShootingGame: React.FC = () => {
           p.noStroke();
 
           g.p5 = p;
-          // sound init（存在する環境でのみ）
-          try {
-            // @ts-ignore
-            g.hitOsc = new p5.Oscillator("triangle"); g.hitOsc.amp(0); g.hitOsc.start();
-            // @ts-ignore
-            g.fireNoise = new p5.Noise("white"); g.fireNoise.amp(0); g.fireNoise.start();
-            // @ts-ignore
-            g.decoyOsc = new p5.Oscillator("sawtooth"); g.decoyOsc.amp(0); g.decoyOsc.start();
-            // @ts-ignore
-            g.reverb = new p5.Reverb();
-            g.soundReady = true;
-          } catch {
-            g.soundReady = false;
-          }
+          // サウンド無効化のため何もしない
 
           toTitle();
         };
@@ -282,6 +267,9 @@ const ShootingGame: React.FC = () => {
           g.nextSpawnTime = p.millis() + g.spawnInterval;
           syncUi();
           p.loop();
+          // 念のため開始時にも解放と初期化を試行
+          try { /* @ts-ignore */ p.userStartAudio?.(); /* @ts-ignore */ p.getAudioContext?.().resume?.(); /* @ts-ignore */ p.masterVolume?.(0.5); } catch {}
+          initSoundIfNeeded();
         }
 
         function endGame(){
