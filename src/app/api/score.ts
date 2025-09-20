@@ -10,20 +10,23 @@ type ScoreRow = {
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl) {
     throw new Error('Missing env: NEXT_PUBLIC_SUPABASE_URL');
 }
 if (!supabaseKey) {
-    throw new Error('Missing env: SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error('Missing env: NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-export async function addScore(name: string, score: number): Promise<ScoreRow> {
+export async function addScore(name: string, game_title: string, score: number): Promise<ScoreRow> {
     if (typeof name !== 'string' || name.trim().length === 0) {
         throw new Error('Invalid name');
+    }
+    if (typeof game_title !== 'string' || game_title.trim().length === 0) {
+        throw new Error('Invalid game title');
     }
     if (!Number.isFinite(score)) {
         throw new Error('Invalid score');
@@ -31,7 +34,7 @@ export async function addScore(name: string, score: number): Promise<ScoreRow> {
 
     const { data, error } = await supabase
         .from('scores')
-        .insert([{ user_name: name.trim(), score }])
+        .insert([{ user_name: name.trim(), game_title: game_title.trim(), score }])
         .select('*')
         .single();
 
