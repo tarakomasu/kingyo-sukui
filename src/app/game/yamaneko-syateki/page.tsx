@@ -49,6 +49,15 @@ function getWindDirText(angle: number) {
     return dirs[idx];
 }
 
+    function getComboComment(combo: number) {
+        if (combo >= 20) return "神業ニャ！";
+        if (combo >= 15) return "超すごいニャ！";
+        if (combo >= 10) return "やるニャ～！";
+        if (combo >= 5) return "いい感じニャ";
+        if (combo >= 2) return "ナイス！";
+        return "";
+    }
+
 function Ground() {
     const [ref] = usePlane(() => ({ rotation: [-Math.PI / 2, 0, 0], position: [0, 0, 0] }));
     return (
@@ -116,7 +125,7 @@ function Prize({ id, position, color, onHit }: { id: string; position: [number, 
     );
 }
 
-function Bullet({ id, origin, dir, onExpire, onHit, wind, enabled }: { id: string; origin: THREE.Vector3; dir: THREE.Vector3; onExpire: (id: string) => void; onHit: (prizeId: string) => void; wind: THREE.Vector3; enabled: boolean }) {
+function Bullet({ id, origin, dir, onExpire, onBulletHit, wind, enabled }: { id: string; origin: THREE.Vector3; dir: THREE.Vector3; onExpire: (id: string) => void; onBulletHit: (bulletId: string, prizeId: string) => void; wind: THREE.Vector3; enabled: boolean }) {
     const speed = 150;
     const velocity = useMemo(() => [dir.x * speed, dir.y * speed, dir.z * speed] as [number, number, number], [dir]);
     const [ref, api] = useSphere(() => ({
@@ -181,7 +190,7 @@ function Bullet({ id, origin, dir, onExpire, onHit, wind, enabled }: { id: strin
                     while (target && !(target as any).userData?.prizeId) target = target.parent;
                     if (target) {
                         const prizeId = (target as any).userData.prizeId as string;
-                        onHit(prizeId);
+                        onBulletHit(id, prizeId);
                         const apiTarget = PRIZE_API_MAP.get(target.uuid);
                         if (apiTarget) {
                             const impulseDir = dirNorm.clone().normalize();
@@ -456,6 +465,8 @@ export default function Page() {
     const [hitIds, setHitIds] = useState<Set<string>>(new Set());
     const [bulletIds, setBulletIds] = useState<string[]>([]);
     const [hitFlash, setHitFlash] = useState(false);
+    const hitBulletsRef = useRef<Set<string>>(new Set());
+    const comboTimerRef = useRef<Map<string, number>>(new Map());
     const [isAiming, setIsAiming] = useState(false);
     const [resetViewKey, setResetViewKey] = useState(0);
     const [zeroElevDeg, setZeroElevDeg] = useState(-0.5);
@@ -463,6 +474,7 @@ export default function Page() {
     const [controlMode, setControlMode] = useState<"pc" | "mobile" | null>(null);
     const RELOAD_MS = 600;
     const [reloadUntil, setReloadUntil] = useState<number>(0);
+        const [combo, setCombo] = useState(0);
     
 
     const stallZ = STALL_DIST[distance];
@@ -506,13 +518,53 @@ export default function Page() {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         setBulletIds((prev) => [...prev, JSON.stringify({ id, origin, dir })]);
         setReloadUntil(Date.now() + RELOAD_MS);
+        const tid = window.setTimeout(() => {
+            if (!hitBulletsRef.current.has(id)) {
+                setCombo(0);
+            }
+            comboTimerRef.current.delete(id);
+        }, RELOAD_MS);
+        comboTimerRef.current.set(id, tid);
     }, []);
 
     const expireBullet = useCallback((id: string) => {
         setBulletIds((prev) => prev.filter((b) => JSON.parse(b).id !== id));
+        hitBulletsRef.current.delete(id);
+        const t = comboTimerRef.current.get(id);
+        if (t) {
+            clearTimeout(t);
+            comboTimerRef.current.delete(id);
+        }
     }, []);
 
-    const onHitPrize = useCallback(
+    const onBulletHit = useCallback(
+        (bulletId: string, id: string) => {
+            hitBulletsRef.current.add(bulletId);
+            const t = comboTimerRef.current.get(bulletId);
+            if (t) {
+                clearTimeout(t);
+                comboTimerRef.current.delete(bulletId);
+            }
+            setHitIds((prev) => {
+                if (prev.has(id)) return prev;
+                const next = new Set(prev);
+                next.add(id);
+                return next;
+            });
+            setHitFlash(true);
+            setTimeout(() => setHitFlash(false), 200);
+            if (!isDebug) {
+                setCombo((prev) => {
+                    const next = prev + 1;
+                    setScore((s) => s + Math.round(50 * Math.pow(1.1, next - 1)));
+                    return next;
+                });
+            }
+        },
+        [isDebug]
+    );
+
+    const onPrizeHitPhysics = useCallback(
         (id: string) => {
             setHitIds((prev) => {
                 if (prev.has(id)) return prev;
@@ -522,7 +574,13 @@ export default function Page() {
             });
             setHitFlash(true);
             setTimeout(() => setHitFlash(false), 200);
-            if (!isDebug) setScore((s) => s + 50);
+            if (!isDebug) {
+                setCombo((prev) => {
+                    const next = prev + 1;
+                    setScore((s) => s + Math.round(50 * Math.pow(1.1, next - 1)));
+                    return next;
+                });
+            }
         },
         [isDebug]
     );
@@ -540,8 +598,12 @@ export default function Page() {
         setIsDebug(true);
         setGameState("PLAYING");
         setShowPauseOptions(false);
+        comboTimerRef.current.forEach((tid) => clearTimeout(tid));
+        comboTimerRef.current.clear();
+        hitBulletsRef.current.clear();
         setHitIds(new Set());
         setBulletIds([]);
+    setCombo(0);
         setResetKey((k) => k + 1);
         setIsAiming(true);
         setResetViewKey((k) => k + 1);
@@ -558,8 +620,12 @@ export default function Page() {
         setWindEnabled(true);
         setDistance("far");
         setScore(0);
+        comboTimerRef.current.forEach((tid) => clearTimeout(tid));
+        comboTimerRef.current.clear();
+        hitBulletsRef.current.clear();
         setHitIds(new Set());
         setBulletIds([]);
+    setCombo(0);
         setResetKey((k) => k + 1);
         setGameState("PLAYING");
         setIsAiming(true);
@@ -577,9 +643,13 @@ export default function Page() {
         setIsDebug(false);
         setShowPauseOptions(false);
         setScore(0);
+        comboTimerRef.current.forEach((tid) => clearTimeout(tid));
+        comboTimerRef.current.clear();
+        hitBulletsRef.current.clear();
         setHitIds(new Set());
         setBulletIds([]);
         setDistance("normal");
+        setCombo(0);
         setResetKey((k) => k + 1);
         setIsAiming(false);
         setResetViewKey((k) => k + 1);
@@ -608,13 +678,13 @@ export default function Page() {
                 <fog attach="fog" args={[0x000020, 0, 300]} />
                 <Physics gravity={[0, -9.82, 0]} allowSleep>
                     <Ground />
-                    <StallAndTargets stallZ={stallZ} onHit={onHitPrize} resetKey={resetKey} />
+                    <StallAndTargets stallZ={stallZ} onHit={onPrizeHitPhysics} resetKey={resetKey} />
                     {bulletIds.map((b) => {
                         const parsed = JSON.parse(b);
                         const origin = new THREE.Vector3(parsed.origin.x, parsed.origin.y, parsed.origin.z);
                         const dir = new THREE.Vector3(parsed.dir.x, parsed.dir.y, parsed.dir.z);
                         return (
-                            <Bullet key={parsed.id} id={parsed.id} origin={origin} dir={dir} wind={wind} enabled={windEnabled} onExpire={expireBullet} onHit={onHitPrize} />
+                            <Bullet key={parsed.id} id={parsed.id} origin={origin} dir={dir} wind={wind} enabled={windEnabled} onExpire={expireBullet} onBulletHit={onBulletHit} />
                         );
                     })}
                     <Shooter
@@ -695,6 +765,14 @@ export default function Page() {
                 <div className="absolute top-3 md:top-5 right-3 md:right-5 z-40 bg-black/50 text-white p-2 md:p-3 rounded-lg text-xl md:text-2xl text-right">
                     <div>Score: <span>{score}</span></div>
                     <div>Time: <span>{timeLeft.toFixed(2)}</span></div>
+                    {combo >= 2 && (
+                        <div className="mt-1 md:mt-2">
+                            <div className="text-yellow-300 font-extrabold">{combo} Combo!</div>
+                            {getComboComment(combo) && (
+                                <div className="text-sm md:text-base text-pink-300 mt-0.5">{getComboComment(combo)}</div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -752,7 +830,7 @@ export default function Page() {
             {/* Game Over */}
             {gameState === "GAMEOVER" && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 md:p-8 rounded-2xl shadow-lg border-4 border-yellow-300 text-center z-50 min-w-[320px]">
-                    <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-300 mb-2 [text-shadow:_3px_3px_6px_rgb(0_0_0_/_50%)]">ゲームオーバー</h1>
+                    <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-300 mb-2 [text-shadow:_3px_3px_6px_rgb(0_0_0_/_50%)]">結果</h1>
                     {allHit && <div className="text-xl md:text-2xl text-pink-300 my-2">タイムボーナス +{Math.ceil(timeBonusSecs * 50)}!</div>}
                     <h2 className="text-2xl md:text-3xl mb-4">Final Score: <span>{finalScore}</span></h2>
                     <button onClick={returnToTitle} className="w-full p-3 md:p-4 mt-2 bg-yellow-400 hover:bg-yellow-500 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">トップに戻る</button>
