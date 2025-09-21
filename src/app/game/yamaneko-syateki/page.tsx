@@ -11,6 +11,10 @@ type GameMode = "score" | "free" | "debug" | null;
 
 const STALL_DIST: Record<DistanceKey, number> = { near: -20, normal: -30, far: -45 };
 
+// Recoil defaults for Score/Free modes
+const SCORE_FREE_RECOIL_MAG_DEG = 0.6;
+const SCORE_FREE_RECOIL_SPEED_DEG_PER_SEC = 10;
+
 // Registry to look up physics API for prize meshes by mesh UUID
 const PRIZE_API_MAP: Map<string, { applyImpulse: (impulse: [number, number, number], relativePoint: [number, number, number]) => void }>
     = new Map();
@@ -443,8 +447,8 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
         origin.addScaledVector(down, 0.15);
         onShoot(origin, dir);
 
-        // Debug recoil (kick up over time, no recovery) if enabled
-        if (isDebug && recoilEnabled && recoilMagnitudeDeg > 0) {
+        // Recoil (kick up over time, no recovery) if enabled
+        if (recoilEnabled && recoilMagnitudeDeg > 0) {
             const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
             const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
             const yawOffset = THREE.MathUtils.degToRad((Math.random() * 30) - 15);
@@ -453,7 +457,7 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
             recoilAxisRef.current = kickAxis;
             recoilRemainingRef.current += kickRad;
         }
-    }, [reloadUntil, gameState, camera, onShoot, zeroElevDeg, zeroWindDeg, isDebug, recoilEnabled, recoilMagnitudeDeg]);
+    }, [reloadUntil, gameState, camera, onShoot, zeroElevDeg, zeroWindDeg, recoilEnabled, recoilMagnitudeDeg, recoilSpeedDegPerSec]);
 
     // Listen for clicks on the document (works with pointer lock)
     useEffect(() => {
@@ -535,6 +539,7 @@ export default function Page() {
         const [combo, setCombo] = useState(0);
     const [unlockGraceUntil, setUnlockGraceUntil] = useState(0);
     const [debugBulletSpeed, setDebugBulletSpeed] = useState<number>(150);
+    const [freeRecoilEnabled, setFreeRecoilEnabled] = useState<boolean>(true);
     const [debugRecoilEnabled, setDebugRecoilEnabled] = useState<boolean>(false);
     const [debugRecoilMagnitudeDeg, setDebugRecoilMagnitudeDeg] = useState<number>(2.5);
     const [debugRecoilSpeedDegPerSec, setDebugRecoilSpeedDegPerSec] = useState<number>(180);
@@ -543,6 +548,30 @@ export default function Page() {
     const aimFov = useMemo(() => 75 / magnifications[magIndex], [magIndex, magnifications]);
     const [reloadNow, setReloadNow] = useState<number>(Date.now());
     const currentBulletSpeed = useMemo(() => (isDebug ? debugBulletSpeed : 800), [isDebug, debugBulletSpeed]);
+    const { recoilEnabled, recoilMagDeg, recoilSpeedDegPerSec } = useMemo(() => {
+        if (gameMode === "debug") {
+            return {
+                recoilEnabled: debugRecoilEnabled && debugRecoilMagnitudeDeg > 0,
+                recoilMagDeg: debugRecoilMagnitudeDeg,
+                recoilSpeedDegPerSec: debugRecoilSpeedDegPerSec,
+            };
+        }
+        if (gameMode === "free") {
+            return {
+                recoilEnabled: freeRecoilEnabled && SCORE_FREE_RECOIL_MAG_DEG > 0,
+                recoilMagDeg: SCORE_FREE_RECOIL_MAG_DEG,
+                recoilSpeedDegPerSec: SCORE_FREE_RECOIL_SPEED_DEG_PER_SEC,
+            };
+        }
+        if (gameMode === "score") {
+            return {
+                recoilEnabled: SCORE_FREE_RECOIL_MAG_DEG > 0,
+                recoilMagDeg: SCORE_FREE_RECOIL_MAG_DEG,
+                recoilSpeedDegPerSec: SCORE_FREE_RECOIL_SPEED_DEG_PER_SEC,
+            };
+        }
+        return { recoilEnabled: false, recoilMagDeg: 0, recoilSpeedDegPerSec: 0 };
+    }, [gameMode, debugRecoilEnabled, debugRecoilMagnitudeDeg, debugRecoilSpeedDegPerSec, freeRecoilEnabled]);
     const stallZ = useMemo(() => {
         if (isDebug) return -debugDistanceM;
         if (gameMode === "score") return -(scoreDistance === "mid" ? 200 : 400);
@@ -873,9 +902,9 @@ export default function Page() {
                             });
                         }}
                         isDebug={isDebug}
-                        recoilEnabled={debugRecoilEnabled}
-                        recoilMagnitudeDeg={debugRecoilMagnitudeDeg}
-                        recoilSpeedDegPerSec={debugRecoilSpeedDegPerSec}
+                        recoilEnabled={recoilEnabled}
+                        recoilMagnitudeDeg={recoilMagDeg}
+                        recoilSpeedDegPerSec={recoilSpeedDegPerSec}
                     />
                 </Physics>
             </Canvas>
@@ -1088,6 +1117,15 @@ export default function Page() {
                             <div className="flex justify-center gap-2">
                                 <button onClick={() => setWindEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
                                 <button onClick={() => setWindEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
+                            </div>
+                        </div>
+                    )}
+                    {gameMode === "free" && (
+                        <div className="mb-5">
+                            <label className="block mb-2 font-bold">反動</label>
+                            <div className="flex justify-center gap-2">
+                                <button onClick={() => setFreeRecoilEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${freeRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
+                                <button onClick={() => setFreeRecoilEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!freeRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
                             </div>
                         </div>
                     )}
