@@ -999,16 +999,16 @@ export default function Page() {
                             <div>
                                 <div className="flex justify-between text-sm">
                                     <span>エレベーション（上下）</span>
-                                    <span>{zeroElevDeg.toFixed(1)}°</span>
+                                    <span>{zeroElevDeg.toFixed(2)}°</span>
                                 </div>
-                                <input type="range" min={-5} max={5} step={0.1} value={zeroElevDeg} onChange={(e) => setZeroElevDeg(parseFloat(e.target.value))} className="w-full" />
+                                <input type="range" min={-0.5} max={0.5} step={0.05} value={zeroElevDeg} onChange={(e) => setZeroElevDeg(parseFloat(e.target.value))} className="w-full" />
                             </div>
                             <div>
                                 <div className="flex justify-between text-sm">
                                     <span>ウィンデージ（左右）</span>
-                                    <span>{zeroWindDeg.toFixed(1)}°</span>
+                                    <span>{zeroWindDeg.toFixed(2)}°</span>
                                 </div>
-                                <input type="range" min={-5} max={5} step={0.1} value={zeroWindDeg} onChange={(e) => setZeroWindDeg(parseFloat(e.target.value))} className="w-full" />
+                                <input type="range" min={-0.5} max={0.5} step={0.05} value={zeroWindDeg} onChange={(e) => setZeroWindDeg(parseFloat(e.target.value))} className="w-full" />
                             </div>
                             <button onClick={() => { setZeroElevDeg(-0.1); setZeroWindDeg(0); }} className="mt-2 w-full p-2 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg">リセット</button>
                         </div>
