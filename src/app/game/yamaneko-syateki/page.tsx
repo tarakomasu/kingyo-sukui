@@ -305,7 +305,7 @@ function StallAndTargets({ stallZ, onHit, resetKey }: { stallZ: number; onHit: (
     );
 }
 
-function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, gameState, setGameState, setPausedOpen, isAiming, setIsAiming, resetViewKey, zeroElevDeg, zeroWindDeg, isTouchDevice }: { canShoot: boolean; onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void; wind: THREE.Vector3; bullets: string[]; setBullets: (updater: (prev: string[]) => string[]) => void; sensitivity: number; gameState: GameState; setGameState: (s: GameState) => void; setPausedOpen: (b: boolean) => void; isAiming: boolean; setIsAiming: (v: boolean | ((prev: boolean) => boolean)) => void; resetViewKey: number; zeroElevDeg: number; zeroWindDeg: number; isTouchDevice: boolean }) {
+function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, gameState, setGameState, setPausedOpen, isAiming, setIsAiming, resetViewKey, zeroElevDeg, zeroWindDeg, isTouchDevice, unlockGraceUntil }: { canShoot: boolean; onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void; wind: THREE.Vector3; bullets: string[]; setBullets: (updater: (prev: string[]) => string[]) => void; sensitivity: number; gameState: GameState; setGameState: (s: GameState) => void; setPausedOpen: (b: boolean) => void; isAiming: boolean; setIsAiming: (v: boolean | ((prev: boolean) => boolean)) => void; resetViewKey: number; zeroElevDeg: number; zeroWindDeg: number; isTouchDevice: boolean; unlockGraceUntil: number }) {
     const { camera, gl } = useThree();
     const lockedRef = useRef(false);
     const handleLock = useCallback(() => {
@@ -314,13 +314,18 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
         setPausedOpen(false);
     }, [gameState, setGameState, setPausedOpen]);
     const handleUnlock = useCallback(() => {
+        // Ignore unlocks that occur within a brief grace period after starting
+        if (Date.now() < unlockGraceUntil) {
+            lockedRef.current = false;
+            return;
+        }
         if (lockedRef.current && gameState === "PLAYING") {
             lockedRef.current = false;
             setGameState("PAUSED");
             setPausedOpen(true);
         }
         setIsAiming(false);
-    }, [gameState, setGameState, setPausedOpen]);
+    }, [gameState, setGameState, setPausedOpen, unlockGraceUntil]);
 
     useEffect(() => {
         gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
@@ -475,6 +480,7 @@ export default function Page() {
     const RELOAD_MS = 600;
     const [reloadUntil, setReloadUntil] = useState<number>(0);
         const [combo, setCombo] = useState(0);
+    const [unlockGraceUntil, setUnlockGraceUntil] = useState(0);
     
 
     const stallZ = STALL_DIST[distance];
@@ -594,7 +600,7 @@ export default function Page() {
 
     // Gyro removed: no permission flow needed
 
-    const startDebugMode = async () => {
+    const startDebugMode = () => {
         setIsDebug(true);
         setGameState("PLAYING");
         setShowPauseOptions(false);
@@ -605,17 +611,18 @@ export default function Page() {
         setBulletIds([]);
     setCombo(0);
         setResetKey((k) => k + 1);
-        setIsAiming(true);
+    setIsAiming(controlMode === "mobile");
         setResetViewKey((k) => k + 1);
         if (controlMode === "pc") {
             try {
                 const el: any = document.getElementById("yamaneko-shooter");
                 if (el && el.requestPointerLock) el.requestPointerLock();
+                setUnlockGraceUntil(Date.now() + 400);
             } catch {}
         }
     };
 
-    const startScoreAttack = async () => {
+    const startScoreAttack = () => {
         setIsDebug(false);
         setWindEnabled(true);
         setDistance("far");
@@ -628,12 +635,13 @@ export default function Page() {
     setCombo(0);
         setResetKey((k) => k + 1);
         setGameState("PLAYING");
-        setIsAiming(true);
+    setIsAiming(controlMode === "mobile");
         setResetViewKey((k) => k + 1);
         if (controlMode === "pc") {
             try {
                 const el: any = document.getElementById("yamaneko-shooter");
                 if (el && el.requestPointerLock) el.requestPointerLock();
+                setUnlockGraceUntil(Date.now() + 400);
             } catch {}
         }
     };
@@ -703,6 +711,7 @@ export default function Page() {
                         zeroElevDeg={zeroElevDeg}
                         zeroWindDeg={zeroWindDeg}
                         isTouchDevice={controlMode === "mobile"}
+                        unlockGraceUntil={unlockGraceUntil}
                     />
                 </Physics>
             </Canvas>
