@@ -146,6 +146,9 @@ const ShootingGame: React.FC = () => {
 
         // サウンドは無効化するため初期化処理は行わない
 
+        // 互換のために no-op を定義（古い呼び出しを安全に無視）
+        function initSoundIfNeeded(){ /* no sound used */ }
+
         p.setup = () => {
           const c = p.createCanvas(typeof window !== 'undefined' ? window.innerWidth : DEFAULT_CONFIG.SCREEN_WIDTH, typeof window !== 'undefined' ? window.innerHeight : DEFAULT_CONFIG.SCREEN_HEIGHT);
           p.pixelDensity(1);
