@@ -827,11 +827,21 @@ export default function Page() {
 
             {/* Wind info (centered horizontally, midway vertically) */}
             {windEnabled && gameState === "PLAYING" && (
-                <div className="absolute left-1/2 -translate-x-1/2 z-40 text-white text-xs md:text-sm flex flex-col items-center pointer-events-none" style={{ top: "25%" }}>
-                    <div className="flex items-center bg-black/40 px-2 py-1 rounded-full">
-                        <span className="mr-1">{getWindDirText(windAngle)}</span>
-                        <div className="ml-1 transition-transform duration-500 ease-out" style={{ transform: `rotate(${(Math.PI / 2 - windAngle)}rad)` }}>
-                            <svg width={16 + windStrength * 2} height={16 + windStrength * 2} viewBox="0 0 24 24">
+                <div
+                    className={`absolute left-1/2 -translate-x-1/2 z-40 text-white flex flex-col items-center pointer-events-none ${isAiming ? "text-2xl md:text-3xl" : "text-base md:text-lg"}`}
+                    style={{ top: "25%" }}
+                >
+                    <div className={`flex items-center bg-black/40 rounded-full ${isAiming ? "px-5 py-3" : "px-4 py-2"}`}>
+                        <span className="mr-2">{getWindDirText(windAngle)}</span>
+                        <div
+                            className="ml-1 transition-transform duration-500 ease-out"
+                            style={{ transform: `rotate(${(Math.PI / 2 - windAngle)}rad)` }}
+                        >
+                            <svg
+                                width={(isAiming ? 32 : 20) + windStrength * (isAiming ? 4 : 3)}
+                                height={(isAiming ? 32 : 20) + windStrength * (isAiming ? 4 : 3)}
+                                viewBox="0 0 24 24"
+                            >
                                 <g fill="white">
                                     <polygon points="12,2 15,8 9,8" />
                                     <rect x="11" y="8" width="2" height="14" />
@@ -839,7 +849,9 @@ export default function Page() {
                             </svg>
                         </div>
                     </div>
-                    <div className="mt-1 text-[11px] opacity-90">{windStrength.toFixed(1)} m/s</div>
+                    <div className={`mt-1 opacity-90 ${isAiming ? "text-xl md:text-2xl" : "text-base md:text-lg"}`}>
+                        {windStrength.toFixed(1)} m/s
+                    </div>
                 </div>
             )}
             
