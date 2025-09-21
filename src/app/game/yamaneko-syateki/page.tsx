@@ -148,7 +148,7 @@ function Bullet({ id, origin, dir, onExpire, onBulletHit, wind, enabled }: { id:
 
     useFrame(() => {
         if (!enabled) return;
-        if (wind.lengthSq() > 0) api.applyForce([wind.x, wind.y, wind.z], [0, 0, 0]);
+    if (wind.lengthSq() > 0) api.applyForce([wind.x, wind.y, wind.z], [0, 0, 0]);
 
         // Segment raycast between last and current position to prevent tunneling
         const obj = (ref as any).current as THREE.Object3D | undefined;
@@ -731,37 +731,27 @@ export default function Page() {
                 >
                     <div className="absolute left-1/2 top-0 -translate-x-1/2 w-[2px] h-full bg-black/80" />
                     <div className="absolute top-1/2 left-0 -translate-y-1/2 h-[2px] w-full bg-black/80" />
-                    {windEnabled && (
-                        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center text-white text-xs md:text-sm">
-                            <div className="flex items-center bg-black/40 px-2 py-1 rounded-full">
-                                <span className="mr-1">{getWindDirText(windAngle)}</span>
-                                <div className="ml-1 transition-transform duration-500 ease-out" style={{ transform: `rotate(${windAngle}rad)` }}>
-                                    <svg width={12 + windStrength * 2} height={12 + windStrength * 2} viewBox="0 0 24 24">
-                                        <path d="M2 12l18-10v20L2 12z" fill="white" />
-                                    </svg>
-                                </div>
-                            </div>
-                            <div className="mt-1 text-[11px] opacity-90">{windStrength.toFixed(1)} m/s</div>
-                        </div>
-                    )}
                 </div>
             )}
             <div
                 className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 border-4 border-white rotate-45 transition-opacity duration-100 ease-out pointer-events-none z-40 ${hitFlash ? "opacity-100" : "opacity-0"}`}
             />
 
-            {/* Wind info */}
-            {windEnabled && !(gameState === "PLAYING" && isAiming) && (
-                <div className="absolute top-3 md:top-5 left-3 md:left-5 z-40 bg-black/50 text-white py-2 px-3 md:p-3 rounded-lg text-base md:text-lg">
-                    <div className="flex items-center">
-                        <span>Wind: {getWindDirText(windAngle)}</span>
-                        <div className="ml-2 transition-transform duration-500 ease-out" style={{ transform: `rotate(${windAngle}rad)` }}>
+            {/* Wind info (centered horizontally, midway vertically) */}
+            {windEnabled && gameState === "PLAYING" && (
+                <div className="absolute left-1/2 -translate-x-1/2 z-40 text-white text-xs md:text-sm flex flex-col items-center pointer-events-none" style={{ top: "25%" }}>
+                    <div className="flex items-center bg-black/40 px-2 py-1 rounded-full">
+                        <span className="mr-1">{getWindDirText(windAngle)}</span>
+                        <div className="ml-1 transition-transform duration-500 ease-out" style={{ transform: `rotate(${(Math.PI / 2 - windAngle)}rad)` }}>
                             <svg width={16 + windStrength * 2} height={16 + windStrength * 2} viewBox="0 0 24 24">
-                                <path d="M2 12l18-10v20L2 12z" fill="white" />
+                                <g fill="white">
+                                    <polygon points="12,2 15,8 9,8" />
+                                    <rect x="11" y="8" width="2" height="14" />
+                                </g>
                             </svg>
                         </div>
                     </div>
-                    <div className="text-sm opacity-90 mt-1">{windStrength.toFixed(1)} m/s</div>
+                    <div className="mt-1 text-[11px] opacity-90">{windStrength.toFixed(1)} m/s</div>
                 </div>
             )}
             
