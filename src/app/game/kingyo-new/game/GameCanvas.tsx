@@ -21,9 +21,15 @@ export type GameCanvasProps = {
   onCatch: () => void;
   onMiss: () => void;
   config: GameConfig;
+  isPlaying: boolean;
+  onDurabilityChange: (durability: number) => void;
+  onPoiBreak: () => void;
 };
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
+
+const POI_HANDLE_HEIGHT = 80;
+const POI_DURABILITY_MAX = 100;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -43,6 +49,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onCatch,
   onMiss,
   config,
+  isPlaying,
+  onDurabilityChange,
+  onPoiBreak,
 }) => {
   const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -52,6 +61,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const ripplesRef = useRef<Ripple[]>([]);
   const lastSpawnRef = useRef<number>(0);
   const isSunkRef = useRef<boolean>(false);
+  const poiDurabilityRef = useRef<number>(POI_DURABILITY_MAX);
   const bottomImageRef = useRef<HTMLImageElement | null>(null);
   const fishImageRef = useRef<HTMLImageElement | null>(null);
   const [isBottomImageLoaded, setIsBottomImageLoaded] = useState(false);
@@ -60,10 +70,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Stabilize callbacks
   const onCatchRef = useRef(onCatch);
   const onMissRef = useRef(onMiss);
+  const onDurabilityChangeRef = useRef(onDurabilityChange);
+  const onPoiBreakRef = useRef(onPoiBreak);
   useEffect(() => {
     onCatchRef.current = onCatch;
     onMissRef.current = onMiss;
-  }, [onCatch, onMiss]);
+    onDurabilityChangeRef.current = onDurabilityChange;
+    onPoiBreakRef.current = onPoiBreak;
+  }, [onCatch, onMiss, onDurabilityChange, onPoiBreak]);
 
   // Load images
   useEffect(() => {
@@ -75,7 +89,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
 
     const fishImg = new Image();
-    fishImg.src = "/kingyo-sukui/kingyos/1758358301464.png";
+    fishImg.src = "/kingyo-sukui/kingyos/gpt-kingyo.png";
     fishImg.onload = () => {
       fishImageRef.current = fishImg;
       setIsFishImageLoaded(true);
@@ -149,7 +163,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
     function onMove(e: PointerEvent) {
-      setPointer(toLocal(e));
+      if (isPlaying) setPointer(toLocal(e));
     }
     function onLeave() {
       setPointer({ x: -9999, y: -9999 });
@@ -161,11 +175,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       canvasEl.removeEventListener("pointermove", onMove);
       canvasEl.removeEventListener("pointerleave", onLeave);
     };
-  }, []);
+  }, [isPlaying]);
 
   // Spawning and Main Game Loop
   useEffect(() => {
-    if (!isFishImageLoaded) return; // Wait for fish image
+    if (!isFishImageLoaded) return;
 
     const canvas = gameCanvasRef.current;
     if (!canvas) return;
@@ -178,6 +192,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let last = performance.now();
 
     function spawn(now: number) {
+      if (!isPlaying) return;
       const rect = canvasEl.getBoundingClientRect();
       if (fishRef.current.length >= config.maxFish) return;
       if (now - lastSpawnRef.current < config.spawnIntervalMs) return;
@@ -198,7 +213,22 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     function update(dt: number, now: number) {
+      if (!isPlaying) {
+        fishRef.current = [];
+        ripplesRef.current = [];
+        return;
+      }
+
       spawn(now);
+
+      if (isSunkRef.current) {
+        poiDurabilityRef.current -= dt * 5; // Damage over time
+      }
+      onDurabilityChangeRef.current(poiDurabilityRef.current);
+      if (poiDurabilityRef.current <= 0) {
+        onPoiBreakRef.current();
+      }
+
       fishRef.current = fishRef.current
         .map((f) => {
           const nx = f.position.x + f.velocity.x * dt;
@@ -232,6 +262,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctxEl.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctxEl.clearRect(0, 0, w, h);
 
+      if (!isPlaying) return;
+
       const highlightGrad = ctxEl.createLinearGradient(0, 0, w, h);
       const offset = Math.sin(now / 1200) * 0.3 + 0.5;
       highlightGrad.addColorStop(offset - 0.2, "rgba(255,255,255,0.0)");
@@ -251,43 +283,51 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctxEl.stroke();
       });
 
-      // Draw fish images
       if (fishImageRef.current) {
         for (const f of fishRef.current) {
           ctxEl.save();
           ctxEl.translate(f.position.x, f.position.y);
           const angle = Math.atan2(f.velocity.y, f.velocity.x);
           ctxEl.rotate(angle);
-          // Flip image if moving left
           if (f.velocity.x < 0) {
             ctxEl.scale(1, -1);
           }
-          ctxEl.drawImage(
-            fishImageRef.current,
-            -f.radius,
-            -f.radius,
-            f.radius * 2,
-            f.radius * 2
-          );
+          ctxEl.drawImage(fishImageRef.current, -f.radius, -f.radius, f.radius * 2, f.radius * 2);
           ctxEl.restore();
         }
       }
 
       if (pointer.x > -1000) {
         const isSunk = isSunkRef.current;
+        const handleWidth = 12;
+        const borderWidth = 8;
+
+        ctxEl.save();
+        ctxEl.translate(pointer.x, pointer.y - config.poiRadius - POI_HANDLE_HEIGHT);
+
+        ctxEl.fillStyle = "pink";
+        ctxEl.fillRect(-handleWidth / 2, config.poiRadius, handleWidth, POI_HANDLE_HEIGHT);
+
         ctxEl.beginPath();
-        const r = config.poiRadius + (isSunk ? 6 : 0);
-        const alpha = isSunk ? 1.0 : 0.6;
-        ctxEl.strokeStyle = `rgba(255,255,255,${alpha})`;
-        ctxEl.lineWidth = isSunk ? 5 : 3;
-        ctxEl.arc(pointer.x, pointer.y, r, 0, Math.PI * 2);
-        ctxEl.stroke();
+        ctxEl.arc(0, 0, config.poiRadius, 0, Math.PI * 2);
+
+        ctxEl.fillStyle = isSunk ? "rgba(255, 255, 255, 0.3)" : "rgba(255, 255, 255, 0.8)";
+        ctxEl.fill();
+
         if (isSunk) {
-          ctxEl.beginPath();
-          ctxEl.fillStyle = `rgba(120, 180, 255, 0.08)`;
-          ctxEl.arc(pointer.x, pointer.y, r - 2, 0, Math.PI * 2);
+          const innerShadowGrad = ctxEl.createRadialGradient(0, 0, config.poiRadius - borderWidth, 0, 0, config.poiRadius);
+          innerShadowGrad.addColorStop(0, "rgba(0,0,0,0)");
+          innerShadowGrad.addColorStop(0.8, "rgba(0,0,0,0)");
+          innerShadowGrad.addColorStop(1, "rgba(0,0,0,0.2)");
+          ctxEl.fillStyle = innerShadowGrad;
           ctxEl.fill();
         }
+        
+        ctxEl.strokeStyle = "pink";
+        ctxEl.lineWidth = borderWidth;
+        ctxEl.stroke();
+
+        ctxEl.restore();
       }
     }
 
@@ -300,10 +340,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     rafRef.current = requestAnimationFrame(loop);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [config, pointer, drawBackground, isFishImageLoaded]);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [config, pointer, drawBackground, isFishImageLoaded, isPlaying]);
 
   function addRipple(x: number, y: number) {
     ripplesRef.current.push({ x, y, t: 0, life: 2.5 });
@@ -314,48 +352,35 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <canvas
         ref={backgroundCanvasRef}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          zIndex: 0,
-          width: "100%",
-          height: "100%",
-        }}
+        style={{ position: "absolute", top: 0, left: 0, zIndex: 0, width: "100%", height: "100%" }}
       />
       <canvas
         ref={gameCanvasRef}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          zIndex: 1,
-          width: "100%",
-          height: "100%",
-          touchAction: "none",
-        }}
+        style={{ position: "absolute", top: 0, left: 0, zIndex: 1, width: "100%", height: "100%", touchAction: "none" }}
         onPointerDown={(e) => {
+          if (!isPlaying) return;
           const el = e.currentTarget as HTMLCanvasElement;
           el.setPointerCapture(e.pointerId);
           isSunkRef.current = true;
           const rect = el.getBoundingClientRect();
-          addRipple(e.clientX - rect.left, e.clientY - rect.top);
+          const pointerX = e.clientX - rect.left;
+          const pointerY = e.clientY - rect.top;
+          addRipple(pointerX, pointerY - config.poiRadius - POI_HANDLE_HEIGHT);
         }}
         onPointerUp={(e) => {
+          if (!isPlaying) return;
           const el = e.currentTarget as HTMLCanvasElement;
           el.releasePointerCapture(e.pointerId);
           if (isSunkRef.current) {
-            const initialFishCount = fishRef.current.length;
+            const poiPaperCenter = { x: pointer.x, y: pointer.y - config.poiRadius - POI_HANDLE_HEIGHT };
             const fishCaught = fishRef.current.filter((f) => {
-              const isHit =
-                length(f.position, pointer) <= f.radius + config.poiRadius;
+              const isHit = length(f.position, poiPaperCenter) <= f.radius + config.poiRadius;
               return isHit;
             });
-            fishRef.current = fishRef.current.filter(
-              (f) => !fishCaught.includes(f)
-            );
+            fishRef.current = fishRef.current.filter((f) => !fishCaught.includes(f));
 
             if (fishCaught.length > 0) {
+              poiDurabilityRef.current -= fishCaught.length * 10;
               fishCaught.forEach(() => onCatchRef.current());
             } else {
               onMissRef.current();
