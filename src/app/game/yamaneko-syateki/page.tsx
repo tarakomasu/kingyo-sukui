@@ -499,6 +499,7 @@ export default function Page() {
     const [zeroElevDeg, setZeroElevDeg] = useState(-0.1);
     const [zeroWindDeg, setZeroWindDeg] = useState(0);
     const [controlMode, setControlMode] = useState<"pc" | "mobile" | null>(null);
+    const [controlModeWarning, setControlModeWarning] = useState(false);
     const RELOAD_MS = 600;
     const [reloadUntil, setReloadUntil] = useState<number>(0);
         const [combo, setCombo] = useState(0);
@@ -520,6 +521,7 @@ export default function Page() {
 
     const chooseControlMode = (mode: "pc" | "mobile") => {
         setControlMode(mode);
+        setControlModeWarning(false);
     };
 
     // Timer for Score mode (hundredths precision)
@@ -915,16 +917,16 @@ export default function Page() {
                         }}
                     >やまねこ射的</h1>
                     <div className="grid grid-cols-1 gap-2">
-                        <button onClick={() => startScoreMode("mid")} className="w-full p-3 md:p-4 mt-2 bg-yellow-400 hover:bg-yellow-500 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">スコアモード（中距離 200m）</button>
-                        <button onClick={() => startScoreMode("long")} className="w-full p-3 md:p-4 mt-1 bg-yellow-500 hover:bg-yellow-600 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">スコアモード（長距離 400m）</button>
-                        <button onClick={startFreeMode} className="w-full p-3 md:p-4 mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">フリーモード</button>
+                        <button onClick={() => { if (!controlMode) { setControlModeWarning(true); return; } startScoreMode("mid"); }} className="w-full p-3 md:p-4 mt-2 bg-yellow-400 hover:bg-yellow-500 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">スコアモード（中距離 200m）</button>
+                        <button onClick={() => { if (!controlMode) { setControlModeWarning(true); return; } startScoreMode("long"); }} className="w-full p-3 md:p-4 mt-1 bg-yellow-500 hover:bg-yellow-600 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">スコアモード（長距離 400m）</button>
+                        <button onClick={() => { if (!controlMode) { setControlModeWarning(true); return; } startFreeMode(); }} className="w-full p-3 md:p-4 mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">フリーモード</button>
                     </div>
                     <div className="mt-5 text-left space-y-3">
                         <div>
                             <div className="font-bold mb-1 text-center">操作モード</div>
                             <div className="grid grid-cols-2 gap-2">
-                                <button onClick={() => setControlMode("pc")} className={`p-2 rounded ${controlMode === "pc" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>PC</button>
-                                <button onClick={() => setControlMode("mobile")} className={`p-2 rounded ${controlMode === "mobile" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>モバイル</button>
+                                <button onClick={() => chooseControlMode("pc")} className={`p-2 rounded ${controlMode === "pc" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>PC</button>
+                                <button onClick={() => chooseControlMode("mobile")} className={`p-2 rounded ${controlMode === "mobile" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>モバイル</button>
                             </div>
                         </div>
                         
@@ -935,8 +937,8 @@ export default function Page() {
                     {controlMode === "mobile" && (
                         <p className="mt-4 text-xs md:text-sm">モバイル: 画面ドラッグでエイム / 指を離して発射 / 右下のボタンで通常⇄エイム切替</p>
                     )}
-                    {controlMode == null && (
-                        <p className="mt-4 text-xs md:text-sm">操作モードを選択してください（PC / モバイル）</p>
+                    {(controlMode == null || controlModeWarning) && (
+                        <p className="mt-4 text-xs md:text-sm text-red-300">操作モードを選択してください（PC / モバイル）</p>
                     )}
                 </div>
             )}
