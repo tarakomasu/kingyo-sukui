@@ -229,9 +229,13 @@ function Lights({ stallZ }: { stallZ: number }) {
     );
 }
 
-function DecorativeStalls() {
+function DecorativeStalls({ stallZ }: { stallZ: number }) {
     const frame = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x1e90ff }), []);
     const white = useMemo(() => new THREE.MeshStandardMaterial({ color: 0xffffff }), []);
+    // Shift stalls in Z so the group center aligns near target shelves (stallZ - 0.75)
+    const baseCenterZ = -15; // average of -10 and -20
+    const targetCenterZ = stallZ - 0.75;
+    const dz = targetCenterZ - baseCenterZ;
     const buildStall = (position: [number, number, number]) => (
         <group position={position}>
             {/* Posts */}
@@ -267,10 +271,10 @@ function DecorativeStalls() {
     );
     return (
         <>
-            {buildStall([-15, 0, -10])}
-            {buildStall([15, 0, -10])}
-            {buildStall([-15, 0, -20])}
-            {buildStall([15, 0, -20])}
+            {buildStall([-15, 0, -10 + dz])}
+            {buildStall([15, 0, -10 + dz])}
+            {buildStall([-15, 0, -20 + dz])}
+            {buildStall([15, 0, -20 + dz])}
         </>
     );
 }
@@ -290,7 +294,7 @@ function StallAndTargets({ stallZ, onHit, resetKey }: { stallZ: number; onHit: (
     return (
         <group key={resetKey}>
             <Lights stallZ={stallZ} />
-            <DecorativeStalls />
+            <DecorativeStalls stallZ={stallZ} />
             {shelves.map((s, idx) => (
                 <Shelf key={`shelf-${idx}`} position={s.pos} />
             ))}
