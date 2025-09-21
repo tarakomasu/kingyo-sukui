@@ -485,13 +485,7 @@ export default function Page() {
 
     const stallZ = STALL_DIST[distance];
 
-    // Initialize control mode heuristically if not set
-    useEffect(() => {
-        if (controlMode == null) {
-            const isTouch = typeof window !== "undefined" && ("ontouchstart" in window || (navigator as any).maxTouchPoints > 0);
-            setControlMode(isTouch ? "mobile" : "pc");
-        }
-    }, [controlMode]);
+    // Control mode initial state remains unselected (no heuristic)
 
     const chooseControlMode = (mode: "pc" | "mobile") => {
         setControlMode(mode);
@@ -808,7 +802,7 @@ export default function Page() {
 
             {/* Top screen */}
             {gameState === "TOP" && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 md:p-8 rounded-2xl shadow-lg border-4 border-yellow-300 text-center z-50 min-w-[320px]">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 md:p-8 rounded-2xl shadow-lg border-4 border-yellow-300 text-center z-50 w-[90vw] max-w-[420px] break-words">
                     <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-300 mb-4 [text-shadow:_3px_3px_6px_rgb(0_0_0_/_50%)]">やまねこ射的</h1>
                     <button onClick={startScoreAttack} className="w-full p-3 md:p-4 mt-2 bg-yellow-400 hover:bg-yellow-500 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">スコアアタック</button>
                     <button onClick={startDebugMode} className="w-full p-3 md:p-4 mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">デバッグモード</button>
@@ -822,13 +816,21 @@ export default function Page() {
                         </div>
                         
                     </div>
-                    <p className="mt-4 text-xs md:text-sm">PC: マウスで視点 | 左クリックで発射 | ESCでメニュー</p>
+                    {controlMode === "pc" && (
+                        <p className="mt-4 text-xs md:text-sm">PC: マウスで視点 / 左クリックで発射 / ESCでメニュー</p>
+                    )}
+                    {controlMode === "mobile" && (
+                        <p className="mt-4 text-xs md:text-sm">モバイル: 画面ドラッグでエイム / 指を離して発射 / 右下のボタンで通常⇄エイム切替</p>
+                    )}
+                    {controlMode == null && (
+                        <p className="mt-4 text-xs md:text-sm">操作モードを選択してください（PC / モバイル）</p>
+                    )}
                 </div>
             )}
 
             {/* Game Over */}
             {gameState === "GAMEOVER" && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 md:p-8 rounded-2xl shadow-lg border-4 border-yellow-300 text-center z-50 min-w-[320px]">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 md:p-8 rounded-2xl shadow-lg border-4 border-yellow-300 text-center z-50 w-[90vw] max-w-[420px] break-words">
                     <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-300 mb-2 [text-shadow:_3px_3px_6px_rgb(0_0_0_/_50%)]">結果</h1>
                     {allHit && <div className="text-xl md:text-2xl text-pink-300 my-2">タイムボーナス +{Math.ceil(timeBonusSecs * 50)}!</div>}
                     <h2 className="text-2xl md:text-3xl mb-4">Final Score: <span>{finalScore}</span></h2>
@@ -838,7 +840,7 @@ export default function Page() {
 
             {/* Options (Pause) */}
             {gameState === "PAUSED" && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 rounded-2xl shadow-lg border-4 border-yellow-300 text-left z-50 min-w-[320px] md:min-w-[340px]">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 rounded-2xl shadow-lg border-4 border-yellow-300 text-left z-50 w-[90vw] max-w-[420px] break-words">
                     <h2 className="text-2xl md:text-3xl font-bold text-center mb-4">オプション</h2>
                     {isDebug && (
                         <div className="mb-5">
