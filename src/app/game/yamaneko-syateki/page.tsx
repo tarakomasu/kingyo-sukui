@@ -764,7 +764,7 @@ export default function Page() {
         <div id="yamaneko-shooter" className="relative w-screen h-[100dvh] bg-black overflow-hidden">
             <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 75, position: [0, 1.7, 10], far: 800 }} gl={{ antialias: true }}>
                 <color attach="background" args={[0x000020]} />
-                <fog attach="fog" args={[0x000020, 0, 600]} />
+                <fog attach="fog" args={[0x000020, 0, 800]} />
                 <Physics gravity={[0, -9.82, 0]} allowSleep>
                     <Ground />
                     <StallAndTargets stallZ={stallZ} onHit={onPrizeHitPhysics} resetKey={resetKey} />
