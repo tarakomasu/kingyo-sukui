@@ -7,6 +7,7 @@ import * as THREE from "three";
 
 type GameState = "TOP" | "PLAYING" | "PAUSED" | "GAMEOVER";
 type DistanceKey = "near" | "normal" | "far";
+type GameMode = "score" | "free" | "debug" | null;
 
 const STALL_DIST: Record<DistanceKey, number> = { near: -20, normal: -30, far: -45 };
 
@@ -304,7 +305,7 @@ function StallAndTargets({ stallZ, onHit, resetKey }: { stallZ: number; onHit: (
     );
 }
 
-function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, gameState, setGameState, setPausedOpen, isAiming, setIsAiming, resetViewKey, zeroElevDeg, zeroWindDeg, isTouchDevice, unlockGraceUntil, aimFov, onCycleMagnification }: { canShoot: boolean; onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void; wind: THREE.Vector3; bullets: string[]; setBullets: (updater: (prev: string[]) => string[]) => void; sensitivity: number; gameState: GameState; setGameState: (s: GameState) => void; setPausedOpen: (b: boolean) => void; isAiming: boolean; setIsAiming: (v: boolean | ((prev: boolean) => boolean)) => void; resetViewKey: number; zeroElevDeg: number; zeroWindDeg: number; isTouchDevice: boolean; unlockGraceUntil: number; aimFov: number; onCycleMagnification: (dir: 1 | -1) => void }) {
+function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity, gameState, setGameState, setPausedOpen, isAiming, setIsAiming, resetViewKey, zeroElevDeg, zeroWindDeg, isTouchDevice, unlockGraceUntil, aimFov, onCycleMagnification }: { reloadUntil: number; onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void; wind: THREE.Vector3; bullets: string[]; setBullets: (updater: (prev: string[]) => string[]) => void; sensitivity: number; gameState: GameState; setGameState: (s: GameState) => void; setPausedOpen: (b: boolean) => void; isAiming: boolean; setIsAiming: (v: boolean | ((prev: boolean) => boolean)) => void; resetViewKey: number; zeroElevDeg: number; zeroWindDeg: number; isTouchDevice: boolean; unlockGraceUntil: number; aimFov: number; onCycleMagnification: (dir: 1 | -1) => void }) {
     const { camera, gl } = useThree();
     const lockedRef = useRef(false);
     const handleLock = useCallback(() => {
@@ -345,7 +346,7 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
     const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
 
     useEffect(() => {
-        if (!isTouchDevice || gameState !== "PLAYING") return;
+    if (!isTouchDevice || gameState !== "PLAYING") return;
         const el = document.getElementById("yamaneko-shooter");
         if (!el) return;
         const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, "YXZ");
@@ -383,7 +384,7 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
             draggingRef.current = false;
             lastTouchRef.current = null;
             // Fire on release only if aiming and not reloading
-            if (isAiming && canShoot) onPointerDown();
+            if (isAiming && Date.now() >= reloadUntil) onPointerDown();
         };
         el.addEventListener("touchstart", onStart, { passive: true });
         el.addEventListener("touchmove", onMove, { passive: false });
@@ -395,7 +396,7 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
             el.removeEventListener("touchend", onEnd as any);
             el.removeEventListener("touchcancel", onEnd as any);
         };
-    }, [isTouchDevice, gameState, camera, sensitivity, isAiming, canShoot]);
+    }, [isTouchDevice, gameState, camera, sensitivity, isAiming, reloadUntil]);
 
     useFrame(() => {
         const targetFov = isAiming && gameState === "PLAYING" ? aimFov : 75;
@@ -407,7 +408,7 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
     });
 
     const onPointerDown = useCallback(() => {
-        if (!canShoot || gameState !== "PLAYING") return;
+        if (Date.now() < reloadUntil || gameState !== "PLAYING") return;
         const dir = new THREE.Vector3();
         camera.getWorldDirection(dir);
         // Apply zero-in adjustments (windage/yaw and elevation/pitch) relative to camera axes
@@ -424,7 +425,7 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
         const down = new THREE.Vector3(0, -1, 0).applyQuaternion(camera.quaternion).normalize();
         origin.addScaledVector(down, 0.15);
         onShoot(origin, dir);
-    }, [canShoot, gameState, camera, onShoot, zeroElevDeg, zeroWindDeg]);
+    }, [reloadUntil, gameState, camera, onShoot, zeroElevDeg, zeroWindDeg]);
 
     // Listen for clicks on the document (works with pointer lock)
     useEffect(() => {
@@ -474,10 +475,14 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
 
 export default function Page() {
     const [gameState, setGameState] = useState<GameState>("TOP");
-    const [isDebug, setIsDebug] = useState(false);
+    const [gameMode, setGameMode] = useState<GameMode>(null);
+    const isDebug = gameMode === "debug";
     const [score, setScore] = useState(0);
     const [timeLeft, setTimeLeft] = useState(30);
+    // legacy distance unused outside debug; use explicit meters for score/free
     const [distance, setDistance] = useState<DistanceKey>("normal");
+    const [scoreDistance, setScoreDistance] = useState<"mid" | "long">("mid");
+    const [freeDistance, setFreeDistance] = useState<"mid" | "long">("mid");
     const [debugDistanceM, setDebugDistanceM] = useState<number>(30);
     const [sensitivity, setSensitivity] = useState(1.0);
     const [windEnabled, setWindEnabled] = useState(true);
@@ -491,7 +496,7 @@ export default function Page() {
     const comboTimerRef = useRef<Map<string, number>>(new Map());
     const [isAiming, setIsAiming] = useState(false);
     const [resetViewKey, setResetViewKey] = useState(0);
-    const [zeroElevDeg, setZeroElevDeg] = useState(-0.6);
+    const [zeroElevDeg, setZeroElevDeg] = useState(-0.1);
     const [zeroWindDeg, setZeroWindDeg] = useState(0);
     const [controlMode, setControlMode] = useState<"pc" | "mobile" | null>(null);
     const RELOAD_MS = 600;
@@ -502,9 +507,14 @@ export default function Page() {
     const magnifications = useMemo(() => [8, 16, 24], []);
     const [magIndex, setMagIndex] = useState<number>(0);
     const aimFov = useMemo(() => 75 / magnifications[magIndex], [magIndex, magnifications]);
-    
-
-    const stallZ = isDebug ? -debugDistanceM : STALL_DIST[distance];
+    const [reloadNow, setReloadNow] = useState<number>(Date.now());
+    const currentBulletSpeed = useMemo(() => (isDebug ? debugBulletSpeed : 800), [isDebug, debugBulletSpeed]);
+    const stallZ = useMemo(() => {
+        if (isDebug) return -debugDistanceM;
+        if (gameMode === "score") return -(scoreDistance === "mid" ? 200 : 400);
+        if (gameMode === "free") return -(freeDistance === "mid" ? 200 : 400);
+        return -200; // default while on TOP
+    }, [isDebug, debugDistanceM, gameMode, scoreDistance, freeDistance]);
 
     // Control mode initial state remains unselected (no heuristic)
 
@@ -512,9 +522,9 @@ export default function Page() {
         setControlMode(mode);
     };
 
-    // Timer for Score Attack (hundredths precision)
+    // Timer for Score mode (hundredths precision)
     useEffect(() => {
-        if (gameState !== "PLAYING" || isDebug === true) return;
+        if (gameState !== "PLAYING" || gameMode !== "score") return;
         const DURATION = 30; // seconds
         const start = performance.now();
         setTimeLeft(DURATION);
@@ -532,12 +542,12 @@ export default function Page() {
         };
         raf = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(raf);
-    }, [gameState, isDebug]);
+    }, [gameState, gameMode]);
 
     // Shooting
     const onShoot = useCallback((origin: THREE.Vector3, dir: THREE.Vector3) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        setBulletIds((prev) => [...prev, JSON.stringify({ id, origin, dir, speed: debugBulletSpeed })]);
+        setBulletIds((prev) => [...prev, JSON.stringify({ id, origin, dir, speed: currentBulletSpeed })]);
         setReloadUntil(Date.now() + RELOAD_MS);
         const tid = window.setTimeout(() => {
             if (!hitBulletsRef.current.has(id)) {
@@ -546,7 +556,7 @@ export default function Page() {
             comboTimerRef.current.delete(id);
         }, RELOAD_MS);
         comboTimerRef.current.set(id, tid);
-    }, [debugBulletSpeed, RELOAD_MS]);
+    }, [currentBulletSpeed, RELOAD_MS]);
 
     const expireBullet = useCallback((id: string) => {
         setBulletIds((prev) => prev.filter((b) => JSON.parse(b).id !== id));
@@ -574,7 +584,7 @@ export default function Page() {
             });
             setHitFlash(true);
             setTimeout(() => setHitFlash(false), 200);
-            if (!isDebug) {
+            if (gameMode === "score") {
                 setCombo((prev) => {
                     const next = prev + 1;
                     setScore((s) => s + Math.round(50 * Math.pow(1.1, next - 1)));
@@ -582,7 +592,7 @@ export default function Page() {
                 });
             }
         },
-        [isDebug]
+        [gameMode]
     );
 
     const onPrizeHitPhysics = useCallback(
@@ -595,7 +605,7 @@ export default function Page() {
             });
             setHitFlash(true);
             setTimeout(() => setHitFlash(false), 200);
-            if (!isDebug) {
+            if (gameMode === "score") {
                 setCombo((prev) => {
                     const next = prev + 1;
                     setScore((s) => s + Math.round(50 * Math.pow(1.1, next - 1)));
@@ -603,20 +613,32 @@ export default function Page() {
                 });
             }
         },
-        [isDebug]
+        [gameMode]
     );
 
-    // End game when all prizes are hit (approx 15). Since positions are deterministic, check when >= 15
+    // End game when all prizes are hit (approx 15) in Score mode only
     useEffect(() => {
-        if (!isDebug && gameState === "PLAYING" && hitIds.size >= 15) {
+        if (gameMode === "score" && gameState === "PLAYING" && hitIds.size >= 15) {
             setGameState("GAMEOVER");
         }
-    }, [hitIds, isDebug, gameState]);
+    }, [hitIds, gameMode, gameState]);
+
+    // Smooth reload indicator tick
+    useEffect(() => {
+        if (gameState !== "PLAYING") return;
+        let raf = 0;
+        const tick = () => {
+            setReloadNow(Date.now());
+            raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [gameState]);
 
     // Gyro removed: no permission flow needed
 
     const startDebugMode = () => {
-        setIsDebug(true);
+        setGameMode("debug");
         setGameState("PLAYING");
         setShowPauseOptions(false);
         comboTimerRef.current.forEach((tid) => clearTimeout(tid));
@@ -624,9 +646,12 @@ export default function Page() {
         hitBulletsRef.current.clear();
         setHitIds(new Set());
         setBulletIds([]);
-    setCombo(0);
+        setCombo(0);
+        // Debug defaults follow Free mode (800m/s, 200m)
+        setDebugBulletSpeed(800);
+        setDebugDistanceM(200);
         setResetKey((k) => k + 1);
-    setIsAiming(controlMode === "mobile");
+        setIsAiming(controlMode === "mobile");
         setResetViewKey((k) => k + 1);
         if (controlMode === "pc") {
             try {
@@ -637,20 +662,44 @@ export default function Page() {
         }
     };
 
-    const startScoreAttack = () => {
-        setIsDebug(false);
+    const startScoreMode = (dist: "mid" | "long") => {
+        setGameMode("score");
         setWindEnabled(true);
-        setDistance("far");
         setScore(0);
         comboTimerRef.current.forEach((tid) => clearTimeout(tid));
         comboTimerRef.current.clear();
         hitBulletsRef.current.clear();
         setHitIds(new Set());
         setBulletIds([]);
-    setCombo(0);
+        setCombo(0);
         setResetKey((k) => k + 1);
         setGameState("PLAYING");
-    setIsAiming(controlMode === "mobile");
+        setIsAiming(controlMode === "mobile");
+        setScoreDistance(dist);
+        setResetViewKey((k) => k + 1);
+        if (controlMode === "pc") {
+            try {
+                const el: any = document.getElementById("yamaneko-shooter");
+                if (el && el.requestPointerLock) el.requestPointerLock();
+                setUnlockGraceUntil(Date.now() + 400);
+            } catch {}
+        }
+    };
+
+    const startFreeMode = () => {
+        setGameMode("free");
+        setWindEnabled(true);
+        setScore(0);
+        comboTimerRef.current.forEach((tid) => clearTimeout(tid));
+        comboTimerRef.current.clear();
+        hitBulletsRef.current.clear();
+        setHitIds(new Set());
+        setBulletIds([]);
+        setCombo(0);
+        setFreeDistance("mid");
+        setResetKey((k) => k + 1);
+        setGameState("PLAYING");
+        setIsAiming(controlMode === "mobile");
         setResetViewKey((k) => k + 1);
         if (controlMode === "pc") {
             try {
@@ -663,7 +712,7 @@ export default function Page() {
 
     const returnToTitle = () => {
         setGameState("TOP");
-        setIsDebug(false);
+        setGameMode(null);
         setShowPauseOptions(false);
         setScore(0);
         comboTimerRef.current.forEach((tid) => clearTimeout(tid));
@@ -678,9 +727,11 @@ export default function Page() {
         setResetViewKey((k) => k + 1);
     };
 
-    const allHit = !isDebug && hitIds.size >= 15;
+    const allHit = gameMode === "score" && hitIds.size >= 15;
     const timeBonusSecs = timeLeft;
-    const finalScore = allHit ? score + Math.ceil(timeBonusSecs * 50) : score;
+    const baseFinal = allHit ? score + Math.ceil(timeBonusSecs * 50) : score;
+    const longMultiplier = gameMode === "score" && scoreDistance === "long" ? 1.5 : 1;
+    const finalScore = Math.round(baseFinal * longMultiplier);
 
     // Unlock cursor when not playing (TOP or GAMEOVER)
     useEffect(() => {
@@ -696,7 +747,7 @@ export default function Page() {
 
     return (
         <div id="yamaneko-shooter" className="relative w-screen h-[100dvh] bg-black overflow-hidden">
-            <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 75, position: [0, 1.7, 10], far: 500 }} gl={{ antialias: true }}>
+            <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 75, position: [0, 1.7, 10], far: 800 }} gl={{ antialias: true }}>
                 <color attach="background" args={[0x000020]} />
                 <fog attach="fog" args={[0x000020, 0, 600]} />
                 <Physics gravity={[0, -9.82, 0]} allowSleep>
@@ -711,7 +762,7 @@ export default function Page() {
                         );
                     })}
                     <Shooter
-                        canShoot={Date.now() >= reloadUntil}
+                        reloadUntil={reloadUntil}
                         onShoot={onShoot}
                         wind={wind}
                         bullets={bulletIds.map((b) => JSON.parse(b).id)}
@@ -782,7 +833,7 @@ export default function Page() {
             </div>
 
             {/* HUD */}
-            {gameState === "PLAYING" && !isDebug && (
+            {gameState === "PLAYING" && gameMode === "score" && (
                 <div className="absolute top-3 md:top-5 right-3 md:right-5 z-40 bg-black/50 text-white p-2 md:p-3 rounded-lg text-xl md:text-2xl text-right">
                     <div>Score: <span>{score}</span></div>
                     <div>Time: <span>{timeLeft.toFixed(2)}</span></div>
@@ -798,11 +849,11 @@ export default function Page() {
             )}
 
             {/* Reload indicator */}
-            {gameState === "PLAYING" && Date.now() < reloadUntil && (
+            {gameState === "PLAYING" && reloadNow < reloadUntil && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none">
                     <svg width="56" height="56" viewBox="0 0 40 40">
                         <circle cx="20" cy="20" r="18" stroke="rgba(255,255,255,0.25)" strokeWidth="4" fill="none" />
-                        {(() => { const total = RELOAD_MS; const remain = Math.max(0, reloadUntil - Date.now()); const prog = 1 - remain / total; const circ = 2 * Math.PI * 18; const dash = Math.max(0, Math.min(circ, circ * prog)); return (
+                        {(() => { const total = RELOAD_MS; const remain = Math.max(0, reloadUntil - reloadNow); const prog = 1 - remain / total; const circ = 2 * Math.PI * 18; const dash = Math.max(0, Math.min(circ, circ * prog)); return (
                             <circle cx="20" cy="20" r="18" stroke="#fff" strokeWidth="4" fill="none" strokeDasharray={`${dash},${circ}`} transform="rotate(-90 20 20)" />
                         ); })()}
                     </svg>
@@ -844,9 +895,30 @@ export default function Page() {
             {/* Top screen */}
             {gameState === "TOP" && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 md:p-8 rounded-2xl shadow-lg border-4 border-yellow-300 text-center z-50 w-[90vw] max-w-[420px] break-words">
-                    <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-300 mb-4 [text-shadow:_3px_3px_6px_rgb(0_0_0_/_50%)]">やまねこ射的</h1>
-                    <button onClick={startScoreAttack} className="w-full p-3 md:p-4 mt-2 bg-yellow-400 hover:bg-yellow-500 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">スコアアタック</button>
-                    <button onClick={startDebugMode} className="w-full p-3 md:p-4 mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">デバッグモード</button>
+                    <h1
+                        className="text-4xl md:text-5xl font-extrabold text-yellow-300 mb-4 [text-shadow:_3px_3px_6px_rgb(0_0_0_/_50%)]"
+                        onClick={(e) => {
+                            // Hidden debug entry: 3 taps within 1s
+                            const key = "dbg-tap";
+                            const now = Date.now();
+                            const rec = (window as any)[key] as { t0: number; n: number } | undefined;
+                            if (!rec || now - rec.t0 > 1000) {
+                                (window as any)[key] = { t0: now, n: 1 };
+                            } else {
+                                const n = rec.n + 1;
+                                (window as any)[key] = { t0: rec.t0, n };
+                                if (n >= 3) {
+                                    (window as any)[key] = undefined;
+                                    startDebugMode();
+                                }
+                            }
+                        }}
+                    >やまねこ射的</h1>
+                    <div className="grid grid-cols-1 gap-2">
+                        <button onClick={() => startScoreMode("mid")} className="w-full p-3 md:p-4 mt-2 bg-yellow-400 hover:bg-yellow-500 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">スコアモード（中距離 200m）</button>
+                        <button onClick={() => startScoreMode("long")} className="w-full p-3 md:p-4 mt-1 bg-yellow-500 hover:bg-yellow-600 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">スコアモード（長距離 400m）</button>
+                        <button onClick={startFreeMode} className="w-full p-3 md:p-4 mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">フリーモード</button>
+                    </div>
                     <div className="mt-5 text-left space-y-3">
                         <div>
                             <div className="font-bold mb-1 text-center">操作モード</div>
@@ -870,11 +942,11 @@ export default function Page() {
             )}
 
             {/* Game Over */}
-            {gameState === "GAMEOVER" && (
+            {gameState === "GAMEOVER" && gameMode === "score" && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 md:p-8 rounded-2xl shadow-lg border-4 border-yellow-300 text-center z-50 w-[90vw] max-w-[420px] break-words">
                     <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-300 mb-2 [text-shadow:_3px_3px_6px_rgb(0_0_0_/_50%)]">結果</h1>
                     {allHit && <div className="text-xl md:text-2xl text-pink-300 my-2">タイムボーナス +{Math.ceil(timeBonusSecs * 50)}!</div>}
-                    <h2 className="text-2xl md:text-3xl mb-4">Final Score: <span>{finalScore}</span></h2>
+                    <h2 className="text-2xl md:text-3xl mb-4">Final Score: <span>{finalScore}{scoreDistance === "long" ? " ×1.5" : ""}</span></h2>
                     <button onClick={returnToTitle} className="w-full p-3 md:p-4 mt-2 bg-yellow-400 hover:bg-yellow-500 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">トップに戻る</button>
                 </div>
             )}
@@ -883,6 +955,24 @@ export default function Page() {
             {gameState === "PAUSED" && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 rounded-2xl shadow-lg border-4 border-yellow-300 text-left z-50 w-[90vw] max-w-[420px] break-words">
                     <h2 className="text-2xl md:text-3xl font-bold text-center mb-4">オプション</h2>
+                    {gameMode === "free" && (
+                        <div className="mb-5">
+                            <label className="block mb-2 font-bold">屋台との距離</label>
+                            <div className="flex justify-center gap-2">
+                                <button onClick={() => setFreeDistance("mid")} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "mid" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>中（200m）</button>
+                                <button onClick={() => setFreeDistance("long")} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "long" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>遠（400m）</button>
+                            </div>
+                        </div>
+                    )}
+                    {gameMode === "free" && (
+                        <div className="mb-5">
+                            <label className="block mb-2 font-bold">風の影響</label>
+                            <div className="flex justify-center gap-2">
+                                <button onClick={() => setWindEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
+                                <button onClick={() => setWindEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
+                            </div>
+                        </div>
+                    )}
                     {isDebug && (
                         <div className="mb-5">
                             <label className="block mb-2 font-bold">風の影響</label>
@@ -892,12 +982,12 @@ export default function Page() {
                             </div>
                             <div className="mt-4">
                                 <label className="block mb-2 font-bold">屋台との距離（m）</label>
-                                <input type="number" min={5} max={100} step={1} value={debugDistanceM} onChange={(e) => setDebugDistanceM(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
+                                <input type="number" min={50} max={600} step={10} value={debugDistanceM} onChange={(e) => setDebugDistanceM(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
                                 <div className="text-sm opacity-80 mt-1">現在: {debugDistanceM} m</div>
                             </div>
                             <div className="mt-4">
                                 <label className="block mb-2 font-bold">弾丸初速（m/s）</label>
-                                <input type="number" min={50} max={300} step={5} value={debugBulletSpeed} onChange={(e) => setDebugBulletSpeed(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
+                                <input type="number" min={50} max={1200} step={10} value={debugBulletSpeed} onChange={(e) => setDebugBulletSpeed(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
                                 <div className="text-sm opacity-80 mt-1">現在: {debugBulletSpeed} m/s</div>
                             </div>
                             <button onClick={() => setResetKey((k) => k + 1)} className="mt-4 w-full p-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg shadow-md">標的をリセット</button>
@@ -920,7 +1010,7 @@ export default function Page() {
                                 </div>
                                 <input type="range" min={-5} max={5} step={0.1} value={zeroWindDeg} onChange={(e) => setZeroWindDeg(parseFloat(e.target.value))} className="w-full" />
                             </div>
-                            <button onClick={() => { setZeroElevDeg(-0.5); setZeroWindDeg(0); }} className="mt-2 w-full p-2 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg">リセット</button>
+                            <button onClick={() => { setZeroElevDeg(-0.1); setZeroWindDeg(0); }} className="mt-2 w-full p-2 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg">リセット</button>
                         </div>
                     </div>
                     <div className="mb-5">
