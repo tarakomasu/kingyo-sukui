@@ -381,8 +381,8 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
         const onEnd = () => {
             draggingRef.current = false;
             lastTouchRef.current = null;
-            // Fire on release
-            onPointerDown();
+            // Fire on release only if aiming and not reloading
+            if (isAiming && canShoot) onPointerDown();
         };
         el.addEventListener("touchstart", onStart, { passive: true });
         el.addEventListener("touchmove", onMove, { passive: false });
@@ -394,7 +394,7 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
             el.removeEventListener("touchend", onEnd as any);
             el.removeEventListener("touchcancel", onEnd as any);
         };
-    }, [isTouchDevice, gameState, camera, sensitivity]);
+    }, [isTouchDevice, gameState, camera, sensitivity, isAiming, canShoot]);
 
     useFrame(() => {
         const targetFov = isAiming && gameState === "PLAYING" ? 10 : 75;
