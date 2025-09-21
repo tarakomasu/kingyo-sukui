@@ -474,7 +474,7 @@ export default function Page() {
     const comboTimerRef = useRef<Map<string, number>>(new Map());
     const [isAiming, setIsAiming] = useState(false);
     const [resetViewKey, setResetViewKey] = useState(0);
-    const [zeroElevDeg, setZeroElevDeg] = useState(-0.5);
+    const [zeroElevDeg, setZeroElevDeg] = useState(-0.6);
     const [zeroWindDeg, setZeroWindDeg] = useState(0);
     const [controlMode, setControlMode] = useState<"pc" | "mobile" | null>(null);
     const RELOAD_MS = 600;
