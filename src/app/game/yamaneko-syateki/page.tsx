@@ -304,7 +304,7 @@ function StallAndTargets({ stallZ, onHit, resetKey }: { stallZ: number; onHit: (
     );
 }
 
-function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, gameState, setGameState, setPausedOpen, isAiming, setIsAiming, resetViewKey, zeroElevDeg, zeroWindDeg, isTouchDevice, unlockGraceUntil }: { canShoot: boolean; onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void; wind: THREE.Vector3; bullets: string[]; setBullets: (updater: (prev: string[]) => string[]) => void; sensitivity: number; gameState: GameState; setGameState: (s: GameState) => void; setPausedOpen: (b: boolean) => void; isAiming: boolean; setIsAiming: (v: boolean | ((prev: boolean) => boolean)) => void; resetViewKey: number; zeroElevDeg: number; zeroWindDeg: number; isTouchDevice: boolean; unlockGraceUntil: number }) {
+function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, gameState, setGameState, setPausedOpen, isAiming, setIsAiming, resetViewKey, zeroElevDeg, zeroWindDeg, isTouchDevice, unlockGraceUntil, aimFov, onCycleMagnification }: { canShoot: boolean; onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void; wind: THREE.Vector3; bullets: string[]; setBullets: (updater: (prev: string[]) => string[]) => void; sensitivity: number; gameState: GameState; setGameState: (s: GameState) => void; setPausedOpen: (b: boolean) => void; isAiming: boolean; setIsAiming: (v: boolean | ((prev: boolean) => boolean)) => void; resetViewKey: number; zeroElevDeg: number; zeroWindDeg: number; isTouchDevice: boolean; unlockGraceUntil: number; aimFov: number; onCycleMagnification: (dir: 1 | -1) => void }) {
     const { camera, gl } = useThree();
     const lockedRef = useRef(false);
     const handleLock = useCallback(() => {
@@ -396,7 +396,7 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
     }, [isTouchDevice, gameState, camera, sensitivity, isAiming, canShoot]);
 
     useFrame(() => {
-        const targetFov = isAiming && gameState === "PLAYING" ? 10 : 75;
+        const targetFov = isAiming && gameState === "PLAYING" ? aimFov : 75;
         if (camera instanceof THREE.PerspectiveCamera) {
             const pc = camera as THREE.PerspectiveCamera;
             pc.fov += (targetFov - pc.fov) * 0.2;
@@ -436,13 +436,25 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
         const preventContext = (e: MouseEvent) => {
             e.preventDefault();
         };
+        const handleWheel = (e: WheelEvent) => {
+            if (gameState !== "PLAYING") return;
+            if (isTouchDevice) return;
+            const delta = e.deltaY;
+            if (delta > 0) {
+                onCycleMagnification(1);
+            } else if (delta < 0) {
+                onCycleMagnification(-1);
+            }
+        };
         document.addEventListener("mousedown", handleMouseDown);
         document.addEventListener("contextmenu", preventContext);
+        document.addEventListener("wheel", handleWheel, { passive: true });
         return () => {
             document.removeEventListener("mousedown", handleMouseDown);
             document.removeEventListener("contextmenu", preventContext);
+            document.removeEventListener("wheel", handleWheel as any);
         };
-    }, [onPointerDown, setIsAiming]);
+    }, [onPointerDown, setIsAiming, gameState, isTouchDevice, onCycleMagnification]);
 
     // No external trigger; firing happens on touch release
 
@@ -482,6 +494,9 @@ export default function Page() {
         const [combo, setCombo] = useState(0);
     const [unlockGraceUntil, setUnlockGraceUntil] = useState(0);
     const [debugBulletSpeed, setDebugBulletSpeed] = useState<number>(150);
+    const magnifications = useMemo(() => [8, 16, 24], []);
+    const [magIndex, setMagIndex] = useState<number>(0);
+    const aimFov = useMemo(() => 75 / magnifications[magIndex], [magIndex, magnifications]);
     
 
     const stallZ = isDebug ? -debugDistanceM : STALL_DIST[distance];
@@ -707,6 +722,13 @@ export default function Page() {
                         zeroWindDeg={zeroWindDeg}
                         isTouchDevice={controlMode === "mobile"}
                         unlockGraceUntil={unlockGraceUntil}
+                        aimFov={aimFov}
+                        onCycleMagnification={(dir) => {
+                            setMagIndex((i: number) => {
+                                const next = (i + (dir === 1 ? 1 : -1) + magnifications.length) % magnifications.length;
+                                return next;
+                            });
+                        }}
                     />
                 </Physics>
             </Canvas>
@@ -791,6 +813,19 @@ export default function Page() {
                     <button data-ui="true" onClick={() => setIsAiming(v => !v)} className="absolute bottom-3 right-3 z-50 bg-black/60 text-white text-sm md:text-base px-3 py-2 rounded shadow">
                         {isAiming ? "通常視点" : "エイム"} <span className="opacity-70">(右クリック)</span>
                     </button>
+                    {/* Magnification buttons */}
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2">
+                        {magnifications.map((m, i) => (
+                            <button
+                                key={m}
+                                data-ui="true"
+                                onClick={() => setMagIndex(i)}
+                                className={`px-3 py-2 rounded-lg shadow text-sm md:text-base ${magIndex === i ? "bg-yellow-400 text-sky-900" : "bg-black/60 text-white"}`}
+                            >
+                                x{m}
+                            </button>
+                        ))}
+                    </div>
                 </>
             )}
 
