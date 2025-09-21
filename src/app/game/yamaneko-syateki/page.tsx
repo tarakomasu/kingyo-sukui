@@ -365,8 +365,10 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
             const dx = t.clientX - last.x;
             const dy = t.clientY - last.y;
             lastTouchRef.current = { x: t.clientX, y: t.clientY };
-            const mobileSensitivityScale = 0.5; // モバイルはデフォルト半分の感度（スライダー1.0で0.5倍）
-            const k = 0.002 * sensitivity * mobileSensitivityScale; // radians per pixel
+            const mobileSensitivityScale = 2.0; // モバイル端末用の感度調整
+            const currentFov = camera instanceof THREE.PerspectiveCamera ? (camera as THREE.PerspectiveCamera).fov : 75;
+            const fovScale = currentFov / 75; // 少ないFOVほど小さく（微細）
+            const k = 0.0012 * sensitivity * mobileSensitivityScale * fovScale; // radians per pixel（微細化）
             // Invert horizontal control (左右反転)
             yawRef.current -= dx * k;
             pitchRef.current -= dy * k;
@@ -460,9 +462,12 @@ function Shooter({ canShoot, onShoot, wind, bullets, setBullets, sensitivity, ga
 
     return (
         <>
-            {(!isTouchDevice && gameState === "PLAYING") && (
-                <PointerLockControls onLock={handleLock} onUnlock={handleUnlock} selector="#yamaneko-shooter" pointerSpeed={sensitivity / 5} />
-            )}
+            {(!isTouchDevice && gameState === "PLAYING") && (() => {
+                const targetFov = isAiming ? aimFov : 75;
+                const fovScale = targetFov / 75; // 少ないFOVほど小さく（微細）
+                const pointerSpeedVal = Math.max(0.03, Math.min(1.5, (sensitivity / 6) * fovScale));
+                return <PointerLockControls onLock={handleLock} onUnlock={handleUnlock} selector="#yamaneko-shooter" pointerSpeed={pointerSpeedVal} />;
+            })()}
         </>
     );
 }
@@ -691,9 +696,9 @@ export default function Page() {
 
     return (
         <div id="yamaneko-shooter" className="relative w-screen h-[100dvh] bg-black overflow-hidden">
-            <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 75, position: [0, 1.7, 10] }} gl={{ antialias: true }}>
+            <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 75, position: [0, 1.7, 10], far: 500 }} gl={{ antialias: true }}>
                 <color attach="background" args={[0x000020]} />
-                <fog attach="fog" args={[0x000020, 0, 300]} />
+                <fog attach="fog" args={[0x000020, 0, 600]} />
                 <Physics gravity={[0, -9.82, 0]} allowSleep>
                     <Ground />
                     <StallAndTargets stallZ={stallZ} onHit={onPrizeHitPhysics} resetKey={resetKey} />
@@ -919,8 +924,8 @@ export default function Page() {
                         </div>
                     </div>
                     <div className="mb-5">
-                        <label className="block mb-2 font-bold">感度: <span>{sensitivity.toFixed(1)}</span></label>
-                        <input type="range" min={0.1} max={2.0} step={0.1} value={sensitivity} onChange={(e) => setSensitivity(parseFloat(e.target.value))} className="w-full" />
+                        <label className="block mb-2 font-bold">感度: <span>{sensitivity.toFixed(2)}</span></label>
+                        <input type="range" min={0.05} max={2.0} step={0.05} value={sensitivity} onChange={(e) => setSensitivity(parseFloat(e.target.value))} className="w-full" />
                     </div>
                     
                     <button onClick={() => setGameState("PLAYING")} className="w-full p-3 mt-2 bg-green-500 hover:bg-green-600 text-white font-bold text-lg rounded-lg shadow-md">ゲームに戻る</button>
