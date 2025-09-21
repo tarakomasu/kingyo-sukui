@@ -324,7 +324,6 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
             setGameState("PAUSED");
             setPausedOpen(true);
         }
-        setIsAiming(false);
     }, [gameState, setGameState, setPausedOpen, unlockGraceUntil]);
 
     useEffect(() => {
@@ -399,7 +398,7 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
     }, [isTouchDevice, gameState, camera, sensitivity, isAiming, reloadUntil]);
 
     useFrame(() => {
-        const targetFov = isAiming && gameState === "PLAYING" ? aimFov : 75;
+        const targetFov = isAiming ? aimFov : 75;
         if (camera instanceof THREE.PerspectiveCamera) {
             const pc = camera as THREE.PerspectiveCamera;
             pc.fov += (targetFov - pc.fov) * 0.2;
@@ -479,6 +478,8 @@ export default function Page() {
     const isDebug = gameMode === "debug";
     const [score, setScore] = useState(0);
     const [timeLeft, setTimeLeft] = useState(30);
+    const timeLeftRef = useRef(30);
+    const lastTickRef = useRef<number | null>(null);
     // legacy distance unused outside debug; use explicit meters for score/free
     const [distance, setDistance] = useState<DistanceKey>("normal");
     const [scoreDistance, setScoreDistance] = useState<"mid" | "long">("mid");
@@ -524,27 +525,35 @@ export default function Page() {
         setControlModeWarning(false);
     };
 
-    // Timer for Score mode (hundredths precision)
+    // Timer for Score mode with proper pause handling
     useEffect(() => {
-        if (gameState !== "PLAYING" || gameMode !== "score") return;
-        const DURATION = 30; // seconds
-        const start = performance.now();
-        setTimeLeft(DURATION);
         let raf = 0;
         const tick = () => {
             const now = performance.now();
-            const elapsed = (now - start) / 1000;
-            const remaining = Math.max(0, DURATION - elapsed);
-            setTimeLeft(remaining);
-            if (remaining <= 0) {
-                setGameState("GAMEOVER");
-                return;
+            if (gameMode === "score") {
+                if (gameState === "PLAYING") {
+                    if (lastTickRef.current == null) lastTickRef.current = now;
+                    const dt = (now - lastTickRef.current) / 1000;
+                    lastTickRef.current = now;
+                    if (timeLeftRef.current > 0) {
+                        timeLeftRef.current = Math.max(0, timeLeftRef.current - dt);
+                        setTimeLeft(timeLeftRef.current);
+                        if (timeLeftRef.current <= 0) {
+                            setGameState("GAMEOVER");
+                        }
+                    }
+                } else {
+                    // Pause: reset last tick so elapsed during pause is ignored
+                    lastTickRef.current = now;
+                }
+            } else {
+                lastTickRef.current = now;
             }
             raf = requestAnimationFrame(tick);
         };
         raf = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(raf);
-    }, [gameState, gameMode]);
+    }, [gameMode, gameState]);
 
     // Shooting
     const onShoot = useCallback((origin: THREE.Vector3, dir: THREE.Vector3) => {
@@ -586,7 +595,7 @@ export default function Page() {
             });
             setHitFlash(true);
             setTimeout(() => setHitFlash(false), 200);
-            if (gameMode === "score") {
+            if (gameMode === "score" && gameState === "PLAYING") {
                 setCombo((prev) => {
                     const next = prev + 1;
                     setScore((s) => s + Math.round(50 * Math.pow(1.1, next - 1)));
@@ -594,7 +603,7 @@ export default function Page() {
                 });
             }
         },
-        [gameMode]
+        [gameMode, gameState]
     );
 
     const onPrizeHitPhysics = useCallback(
@@ -607,7 +616,7 @@ export default function Page() {
             });
             setHitFlash(true);
             setTimeout(() => setHitFlash(false), 200);
-            if (gameMode === "score") {
+            if (gameMode === "score" && gameState === "PLAYING") {
                 setCombo((prev) => {
                     const next = prev + 1;
                     setScore((s) => s + Math.round(50 * Math.pow(1.1, next - 1)));
@@ -615,7 +624,7 @@ export default function Page() {
                 });
             }
         },
-        [gameMode]
+        [gameMode, gameState]
     );
 
     // End game when all prizes are hit (approx 15) in Score mode only
@@ -675,6 +684,10 @@ export default function Page() {
         setBulletIds([]);
         setCombo(0);
         setResetKey((k) => k + 1);
+        // Reset timer to 30s and clear tick accumulator
+        timeLeftRef.current = 30;
+        setTimeLeft(30);
+        lastTickRef.current = null;
         setGameState("PLAYING");
         setIsAiming(controlMode === "mobile");
         setScoreDistance(dist);
