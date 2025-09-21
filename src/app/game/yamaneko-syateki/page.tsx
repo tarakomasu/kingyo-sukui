@@ -652,6 +652,8 @@ export default function Page() {
         setGameMode("debug");
         setGameState("PLAYING");
         setShowPauseOptions(false);
+        setSubmitMsg(null);
+        setSubmitErr(null);
         comboTimerRef.current.forEach((tid) => clearTimeout(tid));
         comboTimerRef.current.clear();
         hitBulletsRef.current.clear();
@@ -677,6 +679,8 @@ export default function Page() {
         setGameMode("score");
         setWindEnabled(true);
         setScore(0);
+        setSubmitMsg(null);
+        setSubmitErr(null);
         comboTimerRef.current.forEach((tid) => clearTimeout(tid));
         comboTimerRef.current.clear();
         hitBulletsRef.current.clear();
@@ -684,6 +688,7 @@ export default function Page() {
         setBulletIds([]);
         setCombo(0);
         setResetKey((k) => k + 1);
+        scorePostedRef.current = false;
         // Reset timer to 30s and clear tick accumulator
         timeLeftRef.current = 30;
         setTimeLeft(30);
@@ -705,6 +710,8 @@ export default function Page() {
         setGameMode("free");
         setWindEnabled(true);
         setScore(0);
+        setSubmitMsg(null);
+        setSubmitErr(null);
         comboTimerRef.current.forEach((tid) => clearTimeout(tid));
         comboTimerRef.current.clear();
         hitBulletsRef.current.clear();
@@ -730,6 +737,9 @@ export default function Page() {
         setGameMode(null);
         setShowPauseOptions(false);
         setScore(0);
+        setSubmitMsg(null);
+        setSubmitErr(null);
+        scorePostedRef.current = false;
         comboTimerRef.current.forEach((tid) => clearTimeout(tid));
         comboTimerRef.current.clear();
         hitBulletsRef.current.clear();
@@ -747,6 +757,36 @@ export default function Page() {
     const baseFinal = allHit ? score + Math.ceil(timeBonusSecs * 50) : score;
     const longMultiplier = gameMode === "score" && scoreDistance === "long" ? 1.5 : 1;
     const finalScore = Math.round(baseFinal * longMultiplier);
+    const [submitMsg, setSubmitMsg] = useState<string | null>(null);
+    const [submitErr, setSubmitErr] = useState<string | null>(null);
+
+    // Post score once when a Score run ends
+    const scorePostedRef = useRef(false);
+    useEffect(() => {
+        if (gameMode === "score" && gameState === "GAMEOVER" && !scorePostedRef.current) {
+            scorePostedRef.current = true;
+            const gameTitle = scoreDistance === "long" ? "yamaneko-syateki-long" : "yamaneko-syateki-mid";
+            const payload = { user_name: "test", score: finalScore, game_title: gameTitle };
+            fetch("/api/scores", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            })
+                .then(async (res) => {
+                    if (!res.ok) {
+                        const t = await res.text().catch(() => "");
+                        throw new Error(t || `HTTP ${res.status}`);
+                    }
+                    setSubmitErr(null);
+                    setSubmitMsg("スコア送信に成功しました");
+                    setTimeout(() => setSubmitMsg(null), 3000);
+                })
+                .catch((e) => {
+                    setSubmitMsg(null);
+                    setSubmitErr("スコア送信に失敗しました");
+                });
+        }
+    }, [gameMode, gameState, finalScore, scoreDistance]);
 
     // Unlock cursor when not playing (TOP or GAMEOVER)
     useEffect(() => {
@@ -870,6 +910,21 @@ export default function Page() {
                             {getComboComment(combo) && (
                                 <div className="text-sm md:text-base text-pink-300 mt-0.5">{getComboComment(combo)}</div>
                             )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {(submitMsg || submitErr) && (
+                <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50">
+                    {submitMsg && (
+                        <div className="bg-emerald-600 text-white py-2 px-4 rounded-full shadow-lg mb-2">
+                            {submitMsg}
+                        </div>
+                    )}
+                    {submitErr && (
+                        <div className="bg-red-600 text-white py-2 px-4 rounded-full shadow-lg">
+                            {submitErr}
                         </div>
                     )}
                 </div>
