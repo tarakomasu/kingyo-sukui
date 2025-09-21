@@ -305,7 +305,7 @@ function StallAndTargets({ stallZ, onHit, resetKey }: { stallZ: number; onHit: (
     );
 }
 
-function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity, gameState, setGameState, setPausedOpen, isAiming, setIsAiming, resetViewKey, zeroElevDeg, zeroWindDeg, isTouchDevice, unlockGraceUntil, aimFov, onCycleMagnification }: { reloadUntil: number; onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void; wind: THREE.Vector3; bullets: string[]; setBullets: (updater: (prev: string[]) => string[]) => void; sensitivity: number; gameState: GameState; setGameState: (s: GameState) => void; setPausedOpen: (b: boolean) => void; isAiming: boolean; setIsAiming: (v: boolean | ((prev: boolean) => boolean)) => void; resetViewKey: number; zeroElevDeg: number; zeroWindDeg: number; isTouchDevice: boolean; unlockGraceUntil: number; aimFov: number; onCycleMagnification: (dir: 1 | -1) => void }) {
+function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity, gameState, setGameState, setPausedOpen, isAiming, setIsAiming, resetViewKey, zeroElevDeg, zeroWindDeg, isTouchDevice, unlockGraceUntil, aimFov, onCycleMagnification, isDebug, recoilEnabled, recoilMagnitudeDeg, recoilSpeedDegPerSec }: { reloadUntil: number; onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void; wind: THREE.Vector3; bullets: string[]; setBullets: (updater: (prev: string[]) => string[]) => void; sensitivity: number; gameState: GameState; setGameState: (s: GameState) => void; setPausedOpen: (b: boolean) => void; isAiming: boolean; setIsAiming: (v: boolean | ((prev: boolean) => boolean)) => void; resetViewKey: number; zeroElevDeg: number; zeroWindDeg: number; isTouchDevice: boolean; unlockGraceUntil: number; aimFov: number; onCycleMagnification: (dir: 1 | -1) => void; isDebug: boolean; recoilEnabled: boolean; recoilMagnitudeDeg: number; recoilSpeedDegPerSec: number }) {
     const { camera, gl } = useThree();
     const lockedRef = useRef(false);
     const handleLock = useCallback(() => {
@@ -397,12 +397,30 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
         };
     }, [isTouchDevice, gameState, camera, sensitivity, isAiming, reloadUntil]);
 
-    useFrame(() => {
+    const recoilAxisRef = useRef<THREE.Vector3 | null>(null);
+    const recoilRemainingRef = useRef(0);
+    const recoilSpeedRef = useRef(0);
+
+    useEffect(() => {
+        recoilSpeedRef.current = THREE.MathUtils.degToRad(recoilSpeedDegPerSec);
+    }, [recoilSpeedDegPerSec]);
+
+    useFrame((_, delta) => {
         const targetFov = isAiming ? aimFov : 75;
         if (camera instanceof THREE.PerspectiveCamera) {
             const pc = camera as THREE.PerspectiveCamera;
             pc.fov += (targetFov - pc.fov) * 0.2;
             pc.updateProjectionMatrix();
+        }
+
+        // Recoil application (kick up over time, no recovery)
+        if (recoilRemainingRef.current > 0 && recoilAxisRef.current) {
+            const step = Math.min(recoilRemainingRef.current, recoilSpeedRef.current * Math.max(0, delta));
+            if (step > 0) {
+                const q = new THREE.Quaternion().setFromAxisAngle(recoilAxisRef.current, step);
+                camera.quaternion.premultiply(q);
+                recoilRemainingRef.current -= step;
+            }
         }
     });
 
@@ -424,7 +442,18 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
         const down = new THREE.Vector3(0, -1, 0).applyQuaternion(camera.quaternion).normalize();
         origin.addScaledVector(down, 0.15);
         onShoot(origin, dir);
-    }, [reloadUntil, gameState, camera, onShoot, zeroElevDeg, zeroWindDeg]);
+
+        // Debug recoil (kick up over time, no recovery) if enabled
+        if (isDebug && recoilEnabled && recoilMagnitudeDeg > 0) {
+            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
+            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+            const yawOffset = THREE.MathUtils.degToRad((Math.random() * 30) - 15);
+            const kickAxis = right.clone().applyAxisAngle(forward, yawOffset).normalize();
+            const kickRad = THREE.MathUtils.degToRad(recoilMagnitudeDeg);
+            recoilAxisRef.current = kickAxis;
+            recoilRemainingRef.current += kickRad;
+        }
+    }, [reloadUntil, gameState, camera, onShoot, zeroElevDeg, zeroWindDeg, isDebug, recoilEnabled, recoilMagnitudeDeg]);
 
     // Listen for clicks on the document (works with pointer lock)
     useEffect(() => {
@@ -506,6 +535,9 @@ export default function Page() {
         const [combo, setCombo] = useState(0);
     const [unlockGraceUntil, setUnlockGraceUntil] = useState(0);
     const [debugBulletSpeed, setDebugBulletSpeed] = useState<number>(150);
+    const [debugRecoilEnabled, setDebugRecoilEnabled] = useState<boolean>(false);
+    const [debugRecoilMagnitudeDeg, setDebugRecoilMagnitudeDeg] = useState<number>(2.5);
+    const [debugRecoilSpeedDegPerSec, setDebugRecoilSpeedDegPerSec] = useState<number>(180);
     const magnifications = useMemo(() => [8, 16, 24], []);
     const [magIndex, setMagIndex] = useState<number>(0);
     const aimFov = useMemo(() => 75 / magnifications[magIndex], [magIndex, magnifications]);
@@ -840,6 +872,10 @@ export default function Page() {
                                 return next;
                             });
                         }}
+                        isDebug={isDebug}
+                        recoilEnabled={debugRecoilEnabled}
+                        recoilMagnitudeDeg={debugRecoilMagnitudeDeg}
+                        recoilSpeedDegPerSec={debugRecoilSpeedDegPerSec}
                     />
                 </Physics>
             </Canvas>
@@ -1035,7 +1071,7 @@ export default function Page() {
 
             {/* Options (Pause) */}
             {gameState === "PAUSED" && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 rounded-2xl shadow-lg border-4 border-yellow-300 text-left z-50 w-[90vw] max-w-[420px] break-words">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 rounded-2xl shadow-lg border-4 border-yellow-300 text-left z-50 w-[90vw] max-w-[420px] max-h-[80dvh] overflow-y-auto break-words">
                     <h2 className="text-2xl md:text-3xl font-bold text-center mb-4">オプション</h2>
                     {gameMode === "free" && (
                         <div className="mb-5">
@@ -1071,6 +1107,29 @@ export default function Page() {
                                 <label className="block mb-2 font-bold">弾丸初速（m/s）</label>
                                 <input type="number" min={50} max={1200} step={10} value={debugBulletSpeed} onChange={(e) => setDebugBulletSpeed(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
                                 <div className="text-sm opacity-80 mt-1">現在: {debugBulletSpeed} m/s</div>
+                            </div>
+                            <div className="mt-6 border-t border-white/20 pt-4">
+                                <label className="block mb-2 font-bold">反動（デバッグ）</label>
+                                <div className="flex justify-center gap-2 mb-3">
+                                    <button onClick={() => setDebugRecoilEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${debugRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
+                                    <button onClick={() => setDebugRecoilEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!debugRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
+                                </div>
+                                <div className={`space-y-3 ${debugRecoilEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
+                                    <div>
+                                        <div className="flex justify-between text-sm">
+                                            <span>跳ね上がりの大きさ</span>
+                                            <span>{debugRecoilMagnitudeDeg.toFixed(2)}°</span>
+                                        </div>
+                                        <input type="range" min={0} max={10} step={0.1} value={debugRecoilMagnitudeDeg} onChange={(e) => setDebugRecoilMagnitudeDeg(parseFloat(e.target.value))} className="w-full" />
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between text-sm">
+                                            <span>跳ね上がりの速度</span>
+                                            <span>{debugRecoilSpeedDegPerSec.toFixed(0)} °/s</span>
+                                        </div>
+                                        <input type="range" min={10} max={100} step={1} value={debugRecoilSpeedDegPerSec} onChange={(e) => setDebugRecoilSpeedDegPerSec(parseFloat(e.target.value))} className="w-full" />
+                                    </div>
+                                </div>
                             </div>
                             <button onClick={() => setResetKey((k) => k + 1)} className="mt-4 w-full p-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg shadow-md">標的をリセット</button>
                         </div>
