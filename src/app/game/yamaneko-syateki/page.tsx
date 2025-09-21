@@ -125,9 +125,8 @@ function Prize({ id, position, color, onHit }: { id: string; position: [number, 
     );
 }
 
-function Bullet({ id, origin, dir, onExpire, onBulletHit, wind, enabled }: { id: string; origin: THREE.Vector3; dir: THREE.Vector3; onExpire: (id: string) => void; onBulletHit: (bulletId: string, prizeId: string) => void; wind: THREE.Vector3; enabled: boolean }) {
-    const speed = 150;
-    const velocity = useMemo(() => [dir.x * speed, dir.y * speed, dir.z * speed] as [number, number, number], [dir]);
+function Bullet({ id, origin, dir, speed, onExpire, onBulletHit, wind, enabled }: { id: string; origin: THREE.Vector3; dir: THREE.Vector3; speed: number; onExpire: (id: string) => void; onBulletHit: (bulletId: string, prizeId: string) => void; wind: THREE.Vector3; enabled: boolean }) {
+    const velocity = useMemo(() => [dir.x * speed, dir.y * speed, dir.z * speed] as [number, number, number], [dir, speed]);
     const [ref, api] = useSphere(() => ({
         args: [0.1],
         mass: 1,
@@ -462,6 +461,7 @@ export default function Page() {
     const [score, setScore] = useState(0);
     const [timeLeft, setTimeLeft] = useState(30);
     const [distance, setDistance] = useState<DistanceKey>("normal");
+    const [debugDistanceM, setDebugDistanceM] = useState<number>(30);
     const [sensitivity, setSensitivity] = useState(1.0);
     const [windEnabled, setWindEnabled] = useState(true);
     const { vec: wind, angle: windAngle, strength: windStrength, showPopup } = useWind(windEnabled, gameState === "PLAYING");
@@ -481,9 +481,10 @@ export default function Page() {
     const [reloadUntil, setReloadUntil] = useState<number>(0);
         const [combo, setCombo] = useState(0);
     const [unlockGraceUntil, setUnlockGraceUntil] = useState(0);
+    const [debugBulletSpeed, setDebugBulletSpeed] = useState<number>(150);
     
 
-    const stallZ = STALL_DIST[distance];
+    const stallZ = isDebug ? -debugDistanceM : STALL_DIST[distance];
 
     // Control mode initial state remains unselected (no heuristic)
 
@@ -516,7 +517,7 @@ export default function Page() {
     // Shooting
     const onShoot = useCallback((origin: THREE.Vector3, dir: THREE.Vector3) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        setBulletIds((prev) => [...prev, JSON.stringify({ id, origin, dir })]);
+        setBulletIds((prev) => [...prev, JSON.stringify({ id, origin, dir, speed: debugBulletSpeed })]);
         setReloadUntil(Date.now() + RELOAD_MS);
         const tid = window.setTimeout(() => {
             if (!hitBulletsRef.current.has(id)) {
@@ -525,7 +526,7 @@ export default function Page() {
             comboTimerRef.current.delete(id);
         }, RELOAD_MS);
         comboTimerRef.current.set(id, tid);
-    }, []);
+    }, [debugBulletSpeed, RELOAD_MS]);
 
     const expireBullet = useCallback((id: string) => {
         setBulletIds((prev) => prev.filter((b) => JSON.parse(b).id !== id));
@@ -686,7 +687,7 @@ export default function Page() {
                         const origin = new THREE.Vector3(parsed.origin.x, parsed.origin.y, parsed.origin.z);
                         const dir = new THREE.Vector3(parsed.dir.x, parsed.dir.y, parsed.dir.z);
                         return (
-                            <Bullet key={parsed.id} id={parsed.id} origin={origin} dir={dir} wind={wind} enabled={windEnabled} onExpire={expireBullet} onBulletHit={onBulletHit} />
+                            <Bullet key={parsed.id} id={parsed.id} origin={origin} dir={dir} speed={parsed.speed ?? 150} wind={wind} enabled={windEnabled} onExpire={expireBullet} onBulletHit={onBulletHit} />
                         );
                     })}
                     <Shooter
@@ -849,6 +850,16 @@ export default function Page() {
                                 <button onClick={() => setWindEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
                                 <button onClick={() => setWindEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
                             </div>
+                            <div className="mt-4">
+                                <label className="block mb-2 font-bold">屋台との距離（m）</label>
+                                <input type="number" min={5} max={100} step={1} value={debugDistanceM} onChange={(e) => setDebugDistanceM(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
+                                <div className="text-sm opacity-80 mt-1">現在: {debugDistanceM} m</div>
+                            </div>
+                            <div className="mt-4">
+                                <label className="block mb-2 font-bold">弾丸初速（m/s）</label>
+                                <input type="number" min={50} max={300} step={5} value={debugBulletSpeed} onChange={(e) => setDebugBulletSpeed(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
+                                <div className="text-sm opacity-80 mt-1">現在: {debugBulletSpeed} m/s</div>
+                            </div>
                             <button onClick={() => setResetKey((k) => k + 1)} className="mt-4 w-full p-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg shadow-md">標的をリセット</button>
                         </div>
                     )}
@@ -870,14 +881,6 @@ export default function Page() {
                                 <input type="range" min={-5} max={5} step={0.1} value={zeroWindDeg} onChange={(e) => setZeroWindDeg(parseFloat(e.target.value))} className="w-full" />
                             </div>
                             <button onClick={() => { setZeroElevDeg(-0.5); setZeroWindDeg(0); }} className="mt-2 w-full p-2 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg">リセット</button>
-                        </div>
-                    </div>
-                    <div className="mb-5">
-                        <label className="block mb-2 font-bold">屋台との距離</label>
-                        <div className="flex justify-center gap-2">
-                            {(["near", "normal", "far"] as DistanceKey[]).map((d) => (
-                                <button key={d} onClick={() => setDistance(d)} className={`flex-1 p-2 border border-yellow-300 rounded ${distance === d ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>{d === "near" ? "近い" : d === "normal" ? "普通" : "遠い"}</button>
-                            ))}
                         </div>
                     </div>
                     <div className="mb-5">
