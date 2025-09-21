@@ -959,8 +959,8 @@ export default function Page() {
                         <div className="mb-5">
                             <label className="block mb-2 font-bold">屋台との距離</label>
                             <div className="flex justify-center gap-2">
-                                <button onClick={() => setFreeDistance("mid")} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "mid" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>中（200m）</button>
-                                <button onClick={() => setFreeDistance("long")} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "long" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>遠（400m）</button>
+                                <button onClick={() => { setFreeDistance("mid"); setResetKey((k) => k + 1); }} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "mid" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>中（200m）</button>
+                                <button onClick={() => { setFreeDistance("long"); setResetKey((k) => k + 1); }} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "long" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>遠（400m）</button>
                             </div>
                         </div>
                     )}
@@ -982,7 +982,7 @@ export default function Page() {
                             </div>
                             <div className="mt-4">
                                 <label className="block mb-2 font-bold">屋台との距離（m）</label>
-                                <input type="number" min={50} max={600} step={10} value={debugDistanceM} onChange={(e) => setDebugDistanceM(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
+                                <input type="number" min={50} max={600} step={10} value={debugDistanceM} onChange={(e) => { const v = Number(e.target.value); setDebugDistanceM(v); if (!Number.isNaN(v)) setResetKey((k) => k + 1); }} className="w-full text-black rounded px-2 py-1" />
                                 <div className="text-sm opacity-80 mt-1">現在: {debugDistanceM} m</div>
                             </div>
                             <div className="mt-4">
