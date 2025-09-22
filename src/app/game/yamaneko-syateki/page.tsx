@@ -112,9 +112,9 @@ function EnvForest() {
     }, []);
     const trees: Array<[number, number, number, number]> = useMemo(() => {
         const arr: Array<[number, number, number, number]> = [];
-        const R = 50; // 50m radius
-        const inner = 3; // clear radius near player
-    const count = 240; // target count (halved)
+    const R = 20; // 30m radius
+    const inner = 2.00; // allow trees >=2m from player
+    const count = 120; // target count of trees
         const cosNarrow = Math.cos(THREE.MathUtils.degToRad(5)); // ±5° exclusion
         let attempts = 0;
         const maxAttempts = count * 6;
