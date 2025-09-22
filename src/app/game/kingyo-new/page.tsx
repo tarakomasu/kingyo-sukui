@@ -64,29 +64,88 @@ const Modal = ({
   </div>
 );
 
-const DurabilityBar = ({ value }: { value: number }) => (
+const GameStatsChip = ({
+  score,
+  time,
+  durability,
+}: {
+  score: number;
+  time: string;
+  durability: number;
+}) => (
   <div
     style={{
-      position: "absolute",
-      bottom: "20px",
-      left: "50%",
-      transform: "translateX(-50%)",
-      width: "300px",
-      height: "20px",
-      background: "#e0e0e0",
-      borderRadius: "10px",
-      overflow: "hidden",
-      border: "2px solid white",
+      padding: "8px 20px",
+      background: "rgba(255, 255, 255, 0.8)",
+      borderRadius: "20px",
+      backdropFilter: "blur(5px)",
+      border: "1px solid rgba(255, 255, 255, 0.9)",
+      display: "flex",
+      alignItems: "center",
+      gap: "16px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
     }}
   >
-    <div
-      style={{
-        width: `${value}%`,
-        height: "100%",
-        background: "linear-gradient(to right, #4caf50, #8bc34a)",
-        transition: "width 0.2s ease-out",
-      }}
-    />
+    {/* Score */}
+    <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+      <span style={{ fontWeight: 600, fontSize: "0.9rem", color: "#555" }}>
+        SCORE
+      </span>
+      <span style={{ fontWeight: 700, fontSize: "1.2rem", color: "#000" }}>
+        {score}
+      </span>
+    </div>
+
+    <div style={{ width: "1px", height: "24px", background: "#ddd" }} />
+
+    {/* Time */}
+    <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+      <span style={{ fontWeight: 600, fontSize: "0.9rem", color: "#555" }}>
+        TIME
+      </span>
+      <span style={{ fontWeight: 700, fontSize: "1.2rem", color: "#000" }}>
+        {time}
+      </span>
+    </div>
+
+    <div style={{ width: "1px", height: "24px", background: "#ddd" }} />
+
+    {/* Durability */}
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <span style={{ fontWeight: 600, fontSize: "0.9rem", color: "#555" }}>
+        HP
+      </span>
+      <div
+        style={{
+          width: "80px",
+          height: "10px",
+          background: "#e0e0e0",
+          borderRadius: "5px",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${durability}%`,
+            height: "100%",
+            background: `linear-gradient(to right, ${
+              durability > 50
+                ? "#4caf50"
+                : durability > 20
+                ? "#ffeb3b"
+                : "#f44336"
+            }, ${
+              durability > 50
+                ? "#8bc34a"
+                : durability > 20
+                ? "#ffc107"
+                : "#e57373"
+            })`,
+            transition: "width 0.2s ease-out, background 0.5s ease",
+          }}
+        ></div>
+      </div>
+    </div>
   </div>
 );
 
@@ -96,11 +155,20 @@ export default function KingyoNewPage() {
   const [gameState, setGameState] = useState("start"); // 'start', 'playing', 'finished'
   const [gameOverReason, setGameOverReason] = useState(""); // 'time', 'poi'
   const [score, setScore] = useState(0);
-  const [caught, setCaught] = useState(0);
-  const [missed, setMissed] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [durability, setDurability] = useState(POI_DURABILITY_MAX);
   const [gameId, setGameId] = useState(1);
+
+  // Effect to handle mobile viewport height
+  useEffect(() => {
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty("--vh", `${vh}px`);
+    };
+    setVh();
+    window.addEventListener("resize", setVh);
+    return () => window.removeEventListener("resize", setVh);
+  }, []);
 
   // Game timer
   useEffect(() => {
@@ -121,8 +189,6 @@ export default function KingyoNewPage() {
 
   const startGame = useCallback(() => {
     setScore(0);
-    setCaught(0);
-    setMissed(0);
     setTimeLeft(GAME_DURATION);
     setDurability(POI_DURABILITY_MAX);
     setGameState("playing");
@@ -136,20 +202,11 @@ export default function KingyoNewPage() {
     }
   }, [gameState]);
 
-  const handleCatch = useCallback(() => {
-    setScore((s) => s + 100);
-    setCaught((c) => c + 1);
-  }, []);
-
-  const handleMiss = useCallback(() => {
-    setMissed((m) => m + 1);
-  }, []);
-
   return (
     <div
       style={{
         width: "100vw",
-        height: "100vh",
+        height: "calc(var(--vh, 1vh) * 100)", // Use dynamic vh
         overflow: "hidden",
         background: "#e6f7ff",
         display: "flex",
@@ -158,28 +215,32 @@ export default function KingyoNewPage() {
     >
       <div
         style={{
-          padding: "8px 12px",
+          padding: "12px",
           display: "flex",
-          gap: 16,
+          justifyContent: "center",
           alignItems: "center",
-          background: "#ffffffbb",
-          backdropFilter: "blur(4px)",
-          borderBottom: "1px solid #dbeafe",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 5,
         }}
       >
-        <span style={{ fontWeight: 700 }}>Kingyo-sukui</span>
-        <span>Score: {score}</span>
-        <span>Caught: {caught}</span>
-        <span>Missed: {missed}</span>
-        <span style={{ marginLeft: "auto" }}>Time: {timeLeft}s</span>
+        {gameState === "playing" && (
+          <GameStatsChip
+            score={score}
+            time={`${timeLeft}s`}
+            durability={durability}
+          />
+        )}
       </div>
 
       <div style={{ flex: 1, position: "relative" }}>
         <GameCanvas
           key={gameId}
           isPlaying={gameState === "playing"}
-          onCatch={handleCatch}
-          onMiss={handleMiss}
+          onCatch={() => setScore((s) => s + 100)}
+          onMiss={() => {}}
           onDurabilityChange={setDurability}
           onPoiBreak={handlePoiBreak}
           config={{
@@ -206,7 +267,6 @@ export default function KingyoNewPage() {
             onButtonClick={startGame}
           />
         )}
-        {gameState === "playing" && <DurabilityBar value={durability} />}
       </div>
     </div>
   );

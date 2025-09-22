@@ -287,12 +287,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         for (const f of fishRef.current) {
           ctxEl.save();
           ctxEl.translate(f.position.x, f.position.y);
-          const angle = Math.atan2(f.velocity.y, f.velocity.x);
+          // 画像の基準向きが「真下」のため、進行方向角から π/2 を減算して合わせる
+          const angle = Math.atan2(f.velocity.y, f.velocity.x) - Math.PI / 2;
           ctxEl.rotate(angle);
-          if (f.velocity.x < 0) {
-            ctxEl.scale(1, -1);
-          }
-          ctxEl.drawImage(fishImageRef.current, -f.radius, -f.radius, f.radius * 2, f.radius * 2);
+          ctxEl.drawImage(
+            fishImageRef.current,
+            -f.radius,
+            -f.radius,
+            f.radius * 2,
+            f.radius * 2
+          );
           ctxEl.restore();
         }
       }
@@ -303,26 +307,43 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const borderWidth = 8;
 
         ctxEl.save();
-        ctxEl.translate(pointer.x, pointer.y - config.poiRadius - POI_HANDLE_HEIGHT);
+        ctxEl.translate(
+          pointer.x,
+          pointer.y - config.poiRadius - POI_HANDLE_HEIGHT
+        );
 
         ctxEl.fillStyle = "pink";
-        ctxEl.fillRect(-handleWidth / 2, config.poiRadius, handleWidth, POI_HANDLE_HEIGHT);
+        ctxEl.fillRect(
+          -handleWidth / 2,
+          config.poiRadius,
+          handleWidth,
+          POI_HANDLE_HEIGHT
+        );
 
         ctxEl.beginPath();
         ctxEl.arc(0, 0, config.poiRadius, 0, Math.PI * 2);
 
-        ctxEl.fillStyle = isSunk ? "rgba(255, 255, 255, 0.3)" : "rgba(255, 255, 255, 0.8)";
+        ctxEl.fillStyle = isSunk
+          ? "rgba(255, 255, 255, 0.3)"
+          : "rgba(255, 255, 255, 0.8)";
         ctxEl.fill();
 
         if (isSunk) {
-          const innerShadowGrad = ctxEl.createRadialGradient(0, 0, config.poiRadius - borderWidth, 0, 0, config.poiRadius);
+          const innerShadowGrad = ctxEl.createRadialGradient(
+            0,
+            0,
+            config.poiRadius - borderWidth,
+            0,
+            0,
+            config.poiRadius
+          );
           innerShadowGrad.addColorStop(0, "rgba(0,0,0,0)");
           innerShadowGrad.addColorStop(0.8, "rgba(0,0,0,0)");
           innerShadowGrad.addColorStop(1, "rgba(0,0,0,0.2)");
           ctxEl.fillStyle = innerShadowGrad;
           ctxEl.fill();
         }
-        
+
         ctxEl.strokeStyle = "pink";
         ctxEl.lineWidth = borderWidth;
         ctxEl.stroke();
@@ -340,7 +361,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     rafRef.current = requestAnimationFrame(loop);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, [config, pointer, drawBackground, isFishImageLoaded, isPlaying]);
 
   function addRipple(x: number, y: number) {
@@ -352,11 +375,26 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <canvas
         ref={backgroundCanvasRef}
-        style={{ position: "absolute", top: 0, left: 0, zIndex: 0, width: "100%", height: "100%" }}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          zIndex: 0,
+          width: "100%",
+          height: "100%",
+        }}
       />
       <canvas
         ref={gameCanvasRef}
-        style={{ position: "absolute", top: 0, left: 0, zIndex: 1, width: "100%", height: "100%", touchAction: "none" }}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          zIndex: 1,
+          width: "100%",
+          height: "100%",
+          touchAction: "none",
+        }}
         onPointerDown={(e) => {
           if (!isPlaying) return;
           const el = e.currentTarget as HTMLCanvasElement;
@@ -372,12 +410,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const el = e.currentTarget as HTMLCanvasElement;
           el.releasePointerCapture(e.pointerId);
           if (isSunkRef.current) {
-            const poiPaperCenter = { x: pointer.x, y: pointer.y - config.poiRadius - POI_HANDLE_HEIGHT };
+            const poiPaperCenter = {
+              x: pointer.x,
+              y: pointer.y - config.poiRadius - POI_HANDLE_HEIGHT,
+            };
             const fishCaught = fishRef.current.filter((f) => {
-              const isHit = length(f.position, poiPaperCenter) <= f.radius + config.poiRadius;
+              const isHit =
+                length(f.position, poiPaperCenter) <=
+                f.radius + config.poiRadius;
               return isHit;
             });
-            fishRef.current = fishRef.current.filter((f) => !fishCaught.includes(f));
+            fishRef.current = fishRef.current.filter(
+              (f) => !fishCaught.includes(f)
+            );
 
             if (fishCaught.length > 0) {
               poiDurabilityRef.current -= fishCaught.length * 10;
