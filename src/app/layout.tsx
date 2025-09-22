@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { M_PLUS_Rounded_1c } from "next/font/google";
 import "./globals.css";
 import { GameProvider } from "@/context/GameContext";
+import UserNameModal from "@/components/UserNameModal";
+import RankingFab from "@/components/RankingFab";
 
 // 子ども向けに読みやすく、丸みのあるフォントを設定
 const roundedMplus = M_PLUS_Rounded_1c({
@@ -43,7 +45,11 @@ export default function RootLayout({
   return (
     <html lang="ja" suppressHydrationWarning>
       <body className={`${roundedMplus.className} bg-[#2C2A4A] text-white`}>
-        <GameProvider>{children}</GameProvider>
+        <GameProvider>
+          <UserNameModal />
+          <RankingFab />
+          {children}
+        </GameProvider>
       </body>
     </html>
   );
