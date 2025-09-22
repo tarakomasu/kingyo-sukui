@@ -88,7 +88,7 @@ export default function UserNameModal() {
           <>
             <h2 id="username-title" style={styles.title}>おなまえをえらんでね</h2>
             {savedName ? (
-              <p style={styles.desc}>前回のなまえ: <strong>{savedName}</strong></p>
+              <p style={styles.desc}>{renameFlow ? "いまのなまえ" : "まえにつかったなまえ"}: <strong>{savedName}</strong></p>
             ) : (
               <p style={styles.desc}>はじめてのひとは新しいなまえをえらんでね。</p>
             )}
@@ -107,13 +107,25 @@ export default function UserNameModal() {
               <button
                 style={styles.secondaryButton}
                 onClick={() => {
-                  setMode("new");
-                  setSkipCheck(true);
-                  setName(savedName);
-                  setDupError(null);
+                  if (renameFlow) {
+                    setMode("new");
+                    setSkipCheck(true);
+                    setName(savedName);
+                    setDupError(null);
+                  } else {
+                    if (savedName) {
+                      try { localStorage.setItem("game_user_name", savedName); } catch {}
+                      setUserName(savedName);
+                    } else {
+                      setMode("new");
+                      setSkipCheck(true);
+                      setName("");
+                      setDupError(null);
+                    }
+                  }
                 }}
               >
-                前回と同じ名前を使う
+                まえにつかったなまえ
               </button>
               {renameFlow && (
                 <button

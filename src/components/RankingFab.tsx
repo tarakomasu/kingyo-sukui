@@ -42,7 +42,7 @@ export default function RankingFab() {
 
             <div style={{ padding: "8px 16px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "6px 0", color: "#666" }}>
-                <div>ユーザー名: <strong>{userName || "(未設定)"}</strong></div>
+                <div>いまのなまえ: <strong>{userName || "(未設定)"}</strong></div>
                 <button
                   onClick={() => {
                     try {
