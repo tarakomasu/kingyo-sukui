@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { PointerLockControls, OrbitControls } from "@react-three/drei";
 import { Physics, useBox, usePlane, useSphere } from "@react-three/cannon";
 import * as THREE from "three";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 type GameState = "TOP" | "PLAYING" | "PAUSED" | "GAMEOVER";
 type DistanceKey = "near" | "normal" | "far";
@@ -96,6 +97,8 @@ function Tree({ position, scale = 1 }: { position: [number, number, number]; sca
 function EnvForest() {
     const { camera } = useThree();
     const greenMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x2f6f2f }), []);
+    const trunkMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x8b5a2b }), []);
+    const leafMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x2e8b57 }), []);
     const center = useMemo(() => {
         const p = new THREE.Vector3();
         camera.getWorldPosition(p);
@@ -111,8 +114,8 @@ function EnvForest() {
         const arr: Array<[number, number, number, number]> = [];
         const R = 50; // 50m radius
         const inner = 3; // clear radius near player
-        const count = 480; // target count
-        const cosNarrow = Math.cos(THREE.MathUtils.degToRad(10)); // ±10° exclusion
+    const count = 240; // target count (halved)
+        const cosNarrow = Math.cos(THREE.MathUtils.degToRad(5)); // ±5° exclusion
         let attempts = 0;
         const maxAttempts = count * 6;
         while (arr.length < count && attempts < maxAttempts) {
@@ -124,21 +127,58 @@ function EnvForest() {
             const dir = new THREE.Vector3(x - center.x, 0, z - center.z).normalize();
             const dot = dir.dot(forward);
             if (dot < 0) continue; // behind player, skip (front 180° only)
-            if (dot >= cosNarrow) continue; // within ±10° ahead, skip
+            if (dot >= cosNarrow) continue; // within ±5° ahead, skip
             const s = 0.8 + Math.random() * 0.8;
             arr.push([x, 0, z, s]);
         }
         return arr;
     }, []);
+    // Build merged geometries for trunks and leaves
+    const trunkBase = useMemo(() => new THREE.CylinderGeometry(0.1, 0.15, 2, 8), []);
+    const leafBase = useMemo(() => new THREE.ConeGeometry(0.9, 1.6, 12), []);
+    const merged = useMemo(() => {
+        const trunkGeoms: THREE.BufferGeometry[] = [];
+        const leafGeoms: THREE.BufferGeometry[] = [];
+        const m = new THREE.Matrix4();
+        for (const [x, , z, s] of trees) {
+            const yScale = Math.max(1, s);
+            // Trunk transform
+            m.identity();
+            m.makeScale(s, yScale, s);
+            m.setPosition(x, yScale, z);
+            const tGeom = trunkBase.clone();
+            tGeom.applyMatrix4(m);
+            trunkGeoms.push(tGeom);
+            // Leaves transform: positioned at y = 2 + 0.8 (center of cone), before scaling
+            const leafM = new THREE.Matrix4();
+            leafM.makeTranslation(0, 2 + 1.6 / 2, 0);
+            const scaleM = new THREE.Matrix4().makeScale(s, yScale, s);
+            const posM = new THREE.Matrix4().makeTranslation(x, 0, z);
+            const finalM = new THREE.Matrix4().multiplyMatrices(posM, new THREE.Matrix4().multiplyMatrices(scaleM, leafM));
+            const lGeom = leafBase.clone();
+            lGeom.applyMatrix4(finalM);
+            leafGeoms.push(lGeom);
+        }
+        const mergedTrunk = trunkGeoms.length ? BufferGeometryUtils.mergeGeometries(trunkGeoms, false) : null;
+        const mergedLeaf = leafGeoms.length ? BufferGeometryUtils.mergeGeometries(leafGeoms, false) : null;
+        // Dispose intermediates to free memory
+        trunkGeoms.forEach(g => g.dispose());
+        leafGeoms.forEach(g => g.dispose());
+        return { mergedTrunk, mergedLeaf };
+    }, [trees, trunkBase, leafBase]);
+
     return (
         <group>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[center.x, 0.01, center.z]} receiveShadow>
                 <circleGeometry args={[50, 64]} />
                 <meshStandardMaterial color={greenMat.color} />
             </mesh>
-            {trees.map((t, idx) => (
-                <Tree key={`tree-${idx}`} position={[t[0], 0, t[2]]} scale={t[3]} />
-            ))}
+            {merged.mergedTrunk && (
+                <mesh geometry={merged.mergedTrunk} material={trunkMat} castShadow receiveShadow />
+            )}
+            {merged.mergedLeaf && (
+                <mesh geometry={merged.mergedLeaf} material={leafMat} castShadow />
+            )}
         </group>
     );
 }
