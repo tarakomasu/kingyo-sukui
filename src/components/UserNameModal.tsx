@@ -12,21 +12,32 @@ export default function UserNameModal() {
   const [skipCheck, setSkipCheck] = useState(false);
   const [dupError, setDupError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [renameFlow, setRenameFlow] = useState(false);
+  const [prevName, setPrevName] = useState("");
 
   // Load saved name from localStorage on mount (do not auto-apply)
   useEffect(() => {
     try {
       const saved = localStorage.getItem("game_user_name") || "";
       setSavedName(saved);
+      const flag = localStorage.getItem("rename_in_progress") === "1";
+      const prev = localStorage.getItem("rename_prev_user_name") || "";
+      if (flag) {
+        setRenameFlow(true);
+        setPrevName(prev);
+      } else {
+        setRenameFlow(false);
+        setPrevName("");
+      }
     } catch {
       // ignore
     }
-  }, []);
-
-  // Open modal only when there's no username
-  useEffect(() => {
-    setOpen(!userName);
   }, [userName]);
+
+  // Open modal when there's no username or rename flow is active
+  useEffect(() => {
+    setOpen(!userName || renameFlow);
+  }, [userName, renameFlow]);
 
   const disabled = useMemo(() => loading || checking || !name.trim(), [loading, checking, name]);
 
@@ -37,7 +48,10 @@ export default function UserNameModal() {
     if (skipCheck) {
       try {
         localStorage.setItem("game_user_name", trimmed);
+        localStorage.removeItem("rename_in_progress");
+        localStorage.removeItem("rename_prev_user_name");
       } catch {}
+      setRenameFlow(false);
       setUserName(trimmed);
       return;
     }
@@ -53,7 +67,10 @@ export default function UserNameModal() {
       }
       try {
         localStorage.setItem("game_user_name", trimmed);
+        localStorage.removeItem("rename_in_progress");
+        localStorage.removeItem("rename_prev_user_name");
       } catch {}
+      setRenameFlow(false);
       setUserName(trimmed);
     } catch (e) {
       setDupError("名前チェックに失敗しました。時間をおいて再度お試しください。");
@@ -98,6 +115,25 @@ export default function UserNameModal() {
               >
                 前回と同じ名前を使う
               </button>
+              {renameFlow && (
+                <button
+                  style={styles.tertiaryButton}
+                  onClick={() => {
+                    try {
+                      localStorage.removeItem("rename_in_progress");
+                      localStorage.removeItem("rename_prev_user_name");
+                    } catch {}
+                    if (prevName) {
+                      try { localStorage.setItem("game_user_name", prevName); } catch {}
+                      setUserName(prevName);
+                    } else {
+                      setUserName(savedName);
+                    }
+                  }}
+                >
+                  なまえの変更をやめる
+                </button>
+              )}
             </div>
           </>
         ) : (
@@ -198,6 +234,16 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#333",
     borderRadius: 8,
     fontSize: "1rem",
+    cursor: "pointer",
+  },
+  tertiaryButton: {
+    padding: "8px 12px",
+    border: "none",
+    background: "transparent",
+    color: "#666",
+    borderRadius: 6,
+    fontSize: "0.95rem",
+    textDecoration: "underline",
     cursor: "pointer",
   },
 };

@@ -37,7 +37,10 @@ export default function RankingFab() {
                 <div>ユーザー名: <strong>{userName || "(未設定)"}</strong></div>
                 <button
                   onClick={() => {
-                    try { localStorage.removeItem("game_user_name"); } catch {}
+                    try {
+                      if (userName) localStorage.setItem("rename_prev_user_name", userName);
+                      localStorage.setItem("rename_in_progress", "1");
+                    } catch {}
                     setUserName("");
                     setOpen(false);
                   }}
