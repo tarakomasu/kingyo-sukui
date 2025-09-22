@@ -73,6 +73,76 @@ function Ground() {
     );
 }
 
+function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
+    const trunkMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x8b5a2b }), []);
+    const leafMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x2e8b57 }), []);
+    const yScale = Math.max(1, scale); // ensure trunk (2m base) stays >= 2m in world height
+    return (
+        <group position={position} scale={[scale, yScale, scale]} castShadow>
+            {/* Trunk: base 2m; with yScale>=1 ensures >=2m world height */}
+            <mesh position={[0, 1, 0]} material={trunkMat} castShadow>
+                <cylinderGeometry args={[0.1, 0.15, 2, 8]} />
+            </mesh>
+            {/* Leaves: center at 2 + h/2 so bottom is exactly 2 in local; with yScale>=1 keeps >=2 world */}
+            <mesh position={[0, 2 + 1.6 / 2, 0]} material={leafMat} castShadow>
+                <coneGeometry args={[0.9, 1.6, 12]} />
+            </mesh>
+        </group>
+    );
+}
+
+// Bush component removed per request
+
+function EnvForest() {
+    const { camera } = useThree();
+    const greenMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x2f6f2f }), []);
+    const center = useMemo(() => {
+        const p = new THREE.Vector3();
+        camera.getWorldPosition(p);
+        return new THREE.Vector3(p.x, 0, p.z);
+    }, []);
+    const forward = useMemo(() => {
+        const f = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        f.y = 0;
+        if (f.lengthSq() < 1e-6) return new THREE.Vector3(0, 0, -1);
+        return f.normalize();
+    }, []);
+    const trees: Array<[number, number, number, number]> = useMemo(() => {
+        const arr: Array<[number, number, number, number]> = [];
+        const R = 50; // 50m radius
+        const inner = 3; // clear radius near player
+        const count = 480; // target count
+        const cosNarrow = Math.cos(THREE.MathUtils.degToRad(10)); // ±10° exclusion
+        let attempts = 0;
+        const maxAttempts = count * 6;
+        while (arr.length < count && attempts < maxAttempts) {
+            attempts++;
+            const r = inner + Math.random() * (R - inner);
+            const t = Math.random() * Math.PI * 2;
+            const x = center.x + Math.cos(t) * r;
+            const z = center.z + Math.sin(t) * r;
+            const dir = new THREE.Vector3(x - center.x, 0, z - center.z).normalize();
+            const dot = dir.dot(forward);
+            if (dot < 0) continue; // behind player, skip (front 180° only)
+            if (dot >= cosNarrow) continue; // within ±10° ahead, skip
+            const s = 0.8 + Math.random() * 0.8;
+            arr.push([x, 0, z, s]);
+        }
+        return arr;
+    }, []);
+    return (
+        <group>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[center.x, 0.01, center.z]} receiveShadow>
+                <circleGeometry args={[50, 64]} />
+                <meshStandardMaterial color={greenMat.color} />
+            </mesh>
+            {trees.map((t, idx) => (
+                <Tree key={`tree-${idx}`} position={[t[0], 0, t[2]]} scale={t[3]} />
+            ))}
+        </group>
+    );
+}
+
 function Shelf({ position, size = [10, 0.2, 2] as [number, number, number] }: { position: [number, number, number]; size?: [number, number, number] }) {
     const [ref] = useBox(() => ({ args: size, position, type: "Static" }));
     return (
@@ -899,6 +969,7 @@ export default function Page() {
                 <fog attach="fog" args={[0x000020, 0, 800]} />
                 <Physics gravity={[0, -9.82, 0]} allowSleep>
                     <Ground />
+                    <EnvForest />
                     <StallAndTargets stallZ={stallZ} onHit={onPrizeHitPhysics} resetKey={resetKey} />
                     {bulletIds.map((b) => {
                         const parsed = JSON.parse(b);
