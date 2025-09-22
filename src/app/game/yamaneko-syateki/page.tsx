@@ -351,6 +351,18 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
     const pitchRef = useRef(0);
     const draggingRef = useRef(false);
     const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
+    const uiTouchRef = useRef(false);
+
+    const isUiTarget = useCallback((target: EventTarget | null) => {
+        let node = target as HTMLElement | null;
+        while (node) {
+            if (node.getAttribute && (node.getAttribute("data-ui") === "true" || node.getAttribute("role") === "button")) return true;
+            const tag = node.tagName?.toLowerCase();
+            if (tag === "button" || tag === "input" || tag === "select" || tag === "textarea" || tag === "a") return true;
+            node = node.parentElement;
+        }
+        return false;
+    }, []);
 
     useEffect(() => {
     if (!isTouchDevice || gameState !== "PLAYING") return;
@@ -360,13 +372,19 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
         yawRef.current = euler.y;
         pitchRef.current = euler.x;
         const onStart = (ev: TouchEvent) => {
+            uiTouchRef.current = isUiTarget(ev.target);
+            if (uiTouchRef.current) {
+                draggingRef.current = false;
+                lastTouchRef.current = null;
+                return;
+            }
             const t = ev.touches[0];
             if (!t) return;
             lastTouchRef.current = { x: t.clientX, y: t.clientY };
             draggingRef.current = true;
         };
         const onMove = (ev: TouchEvent) => {
-            if (!draggingRef.current) return;
+            if (uiTouchRef.current || !draggingRef.current) return;
             const t = ev.touches[0];
             if (!t) return;
             const last = lastTouchRef.current ?? { x: t.clientX, y: t.clientY };
@@ -388,6 +406,12 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
             ev.preventDefault();
         };
         const onEnd = () => {
+            if (uiTouchRef.current) {
+                uiTouchRef.current = false;
+                draggingRef.current = false;
+                lastTouchRef.current = null;
+                return;
+            }
             draggingRef.current = false;
             lastTouchRef.current = null;
             // Fire on release only if aiming and not reloading
@@ -403,7 +427,7 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
             el.removeEventListener("touchend", onEnd as any);
             el.removeEventListener("touchcancel", onEnd as any);
         };
-    }, [isTouchDevice, gameState, camera, sensitivity, isAiming, reloadUntil]);
+    }, [isTouchDevice, gameState, camera, sensitivity, isAiming, reloadUntil, isUiTarget]);
 
     const recoilAxisRef = useRef<THREE.Vector3 | null>(null);
     const recoilRemainingRef = useRef(0);
@@ -466,7 +490,10 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
     // Listen for clicks on the document (works with pointer lock)
     useEffect(() => {
         const handleMouseDown = (e: MouseEvent) => {
-            if (e.button === 0) onPointerDown();
+            if (e.button === 0) {
+                if (isUiTarget(e.target)) return;
+                onPointerDown();
+            }
             if (e.button === 2) {
                 e.preventDefault();
                 setIsAiming((v) => !v); // toggle aiming on right-click
@@ -493,7 +520,7 @@ function Shooter({ reloadUntil, onShoot, wind, bullets, setBullets, sensitivity,
             document.removeEventListener("contextmenu", preventContext);
             document.removeEventListener("wheel", handleWheel as any);
         };
-    }, [onPointerDown, setIsAiming, gameState, isTouchDevice, onCycleMagnification]);
+    }, [onPointerDown, setIsAiming, gameState, isTouchDevice, onCycleMagnification, isUiTarget]);
 
     // No external trigger; firing happens on touch release
 
