@@ -4,10 +4,18 @@ import { useMemo, useState } from "react";
 import { useGame } from "@/context/GameContext";
 
 export default function RankingFab() {
-  const { userName, userScore, userScoreRank, leaderboardsData, loading, setUserName } = useGame() as ReturnType<typeof useGame> & { setUserName: (name: string) => void };
+  const { userName, userScore, userScoreRank, leaderboardsData, loading, setUserName, ranking } = useGame() as ReturnType<typeof useGame> & { setUserName: (name: string) => void };
   const [open, setOpen] = useState(false);
 
   const games = useMemo(() => Object.keys(leaderboardsData || {}), [leaderboardsData]);
+
+  function gameEmoji(title: string) {
+    const t = title.toLowerCase();
+    if (t.includes("kingyo")) return "🐟🏮";
+    if (t.includes("goldfish")) return "🐠🎆";
+    if (t.includes("射的") || t.includes("syateki")) return "🎯🏮";
+    return "🎪🎈";
+  }
 
   return (
     <>
@@ -58,17 +66,30 @@ export default function RankingFab() {
                 {games.map((g) => {
                   const score = userScore[g];
                   const rank = userScoreRank[g];
+                  const top = ranking ? ranking(g, 5) : [];
                   return (
                     <div key={g} style={itemStyle}>
-                      <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                        <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span>{gameEmoji(g)}</span>
                           <div style={{ fontWeight: 700 }}>{g}</div>
-                          <div style={{ fontSize: 12, color: "#666" }}>あなたの記録</div>
                         </div>
                         <div style={{ textAlign: "right" }}>
-                          <div style={{ fontWeight: 700 }}>{score ?? "-"}</div>
-                          <div style={{ fontSize: 12, color: "#666" }}>{rank ? `第 ${rank} 位` : "順位なし"}</div>
+                          <div style={{ fontSize: 12, color: "#666" }}>あなたの記録</div>
+                          <div style={{ fontWeight: 700 }}>{score ?? "-"} {rank ? `(第 ${rank} 位)` : ""}</div>
                         </div>
+                      </div>
+                      <div style={topListStyle}>
+                        {top.length === 0 && (
+                          <div style={{ color: "#777", fontSize: 12 }}>データなし</div>
+                        )}
+                        {top.map((row, idx) => (
+                          <div key={`${g}-${row.id || row.user_name}-${idx}`} style={topRowStyle}>
+                            <span style={rankBadgeStyle}>{idx + 1}</span>
+                            <span style={{ flex: 1 }}>{row.user_name}</span>
+                            <span style={{ fontWeight: 700 }}>{row.score.toLocaleString?.() ?? row.score}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );
@@ -146,6 +167,35 @@ const listStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: 8,
   marginTop: 8,
+};
+
+const topListStyle: React.CSSProperties = {
+  marginTop: 8,
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const topRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 12,
+  padding: "6px 8px",
+  background: "#fff",
+  border: "1px solid #eee",
+  borderRadius: 6,
+};
+
+const rankBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 20,
+  height: 20,
+  borderRadius: 999,
+  background: "#eee",
+  fontWeight: 700,
 };
 
 const itemStyle: React.CSSProperties = {
