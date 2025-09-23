@@ -6,6 +6,7 @@ import { Physics, useBox, usePlane, useSphere } from "@react-three/cannon";
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useGame } from "@/context/GameContext";
+import Toast from "@/components/Toast";
 
 type GameState = "TOP" | "PLAYING" | "PAUSED" | "GAMEOVER";
 type DistanceKey = "near" | "normal" | "far";
@@ -690,7 +691,7 @@ export default function Page() {
     const aimFov = useMemo(() => 75 / magnifications[magIndex], [magIndex, magnifications]);
     const [reloadNow, setReloadNow] = useState<number>(Date.now());
     const currentBulletSpeed = useMemo(() => (isDebug ? debugBulletSpeed : 800), [isDebug, debugBulletSpeed]);
-    const { insertUserScore, userName } = useGame();
+    const { insertUserScore, userName, userScoreRank, userScore } = useGame();
     const { recoilEnabled, recoilMagDeg, recoilSpeedDegPerSec } = useMemo(() => {
         if (gameMode === "debug") {
             return {
@@ -1120,20 +1121,7 @@ export default function Page() {
                 </div>
             )}
 
-            {(submitMsg || submitErr) && (
-                <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50">
-                    {submitMsg && (
-                        <div className="bg-emerald-600 text-white py-2 px-4 rounded-full shadow-lg mb-2">
-                            {submitMsg}
-                        </div>
-                    )}
-                    {submitErr && (
-                        <div className="bg-red-600 text-white py-2 px-4 rounded-full shadow-lg">
-                            {submitErr}
-                        </div>
-                    )}
-                </div>
-            )}
+            {/* Submission status moved to common Toast component */}
 
             {/* Reload indicator */}
             {gameState === "PLAYING" && reloadNow < reloadUntil && (
@@ -1233,9 +1221,31 @@ export default function Page() {
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 md:p-8 rounded-2xl shadow-lg border-4 border-yellow-300 text-center z-50 w-[90vw] max-w-[420px] break-words">
                     <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-300 mb-2 [text-shadow:_3px_3px_6px_rgb(0_0_0_/_50%)]">結果</h1>
                     {allHit && <div className="text-xl md:text-2xl text-pink-300 my-2">タイムボーナス +{Math.ceil(timeBonusSecs * 50)}!</div>}
-                    <h2 className="text-2xl md:text-3xl mb-4">Final Score: <span>{finalScore}{scoreDistance === "long" ? " ×1.5" : ""}</span></h2>
+                    <h2 className="text-2xl md:text-3xl mb-4">今回のスコア: <span>{finalScore}{scoreDistance === "long" ? " ×1.5" : ""}</span></h2>
+                    <div className="text-lg md:text-xl mb-1">
+                        ベストスコア: {(() => {
+                            const gameId = scoreDistance === "long" ? "yamaneko-syateki-long" : "yamaneko-syateki-mid";
+                            const best = userScore[gameId];
+                            return typeof best === "number" ? best : "-";
+                        })()}
+                    </div>
+                    <div className="text-lg md:text-xl mb-4">
+                        順位: {(() => {
+                            const gameId = scoreDistance === "long" ? "yamaneko-syateki-long" : "yamaneko-syateki-mid";
+                            const r = userScoreRank[gameId];
+                            return r ? `#${r}` : "-";
+                        })()}
+                    </div>
                     <button onClick={returnToTitle} className="w-full p-3 md:p-4 mt-2 bg-yellow-400 hover:bg-yellow-500 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">トップに戻る</button>
                 </div>
+            )}
+
+            {/* Toasts */}
+            {submitMsg && (
+                <Toast message={submitMsg} type="success" onClose={() => setSubmitMsg(null)} />
+            )}
+            {submitErr && (
+                <Toast message={submitErr} type="error" onClose={() => setSubmitErr(null)} />
             )}
 
             {/* Options (Pause) */}
