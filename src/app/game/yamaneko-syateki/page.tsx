@@ -5,6 +5,7 @@ import { PointerLockControls, OrbitControls } from "@react-three/drei";
 import { Physics, useBox, usePlane, useSphere } from "@react-three/cannon";
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { useGame } from "@/context/GameContext";
 
 type GameState = "TOP" | "PLAYING" | "PAUSED" | "GAMEOVER";
 type DistanceKey = "near" | "normal" | "far";
@@ -689,6 +690,7 @@ export default function Page() {
     const aimFov = useMemo(() => 75 / magnifications[magIndex], [magIndex, magnifications]);
     const [reloadNow, setReloadNow] = useState<number>(Date.now());
     const currentBulletSpeed = useMemo(() => (isDebug ? debugBulletSpeed : 800), [isDebug, debugBulletSpeed]);
+    const { insertUserScore, userName } = useGame();
     const { recoilEnabled, recoilMagDeg, recoilSpeedDegPerSec } = useMemo(() => {
         if (gameMode === "debug") {
             return {
@@ -968,27 +970,23 @@ export default function Page() {
         if (gameMode === "score" && gameState === "GAMEOVER" && !scorePostedRef.current) {
             scorePostedRef.current = true;
             const gameTitle = scoreDistance === "long" ? "yamaneko-syateki-long" : "yamaneko-syateki-mid";
-            const payload = { user_name: "test", score: finalScore, game_title: gameTitle };
-            fetch("/api/scores", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            })
-                .then(async (res) => {
-                    if (!res.ok) {
-                        const t = await res.text().catch(() => "");
-                        throw new Error(t || `HTTP ${res.status}`);
-                    }
+            if (!userName) {
+                setSubmitMsg(null);
+                setSubmitErr("スコア送信に失敗しました（ユーザー名が未設定）");
+                return;
+            }
+            insertUserScore(gameTitle, finalScore)
+                .then(() => {
                     setSubmitErr(null);
                     setSubmitMsg("スコア送信に成功しました");
                     setTimeout(() => setSubmitMsg(null), 3000);
                 })
-                .catch((e) => {
+                .catch(() => {
                     setSubmitMsg(null);
                     setSubmitErr("スコア送信に失敗しました");
                 });
         }
-    }, [gameMode, gameState, finalScore, scoreDistance]);
+    }, [gameMode, gameState, finalScore, scoreDistance, insertUserScore, userName]);
 
     // Unlock cursor when not playing (TOP or GAMEOVER)
     useEffect(() => {
