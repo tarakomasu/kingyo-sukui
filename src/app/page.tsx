@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
 /** 表示用の型 */
 type Stall = {
@@ -17,20 +18,20 @@ type Stall = {
 };
 
 /** 屋台アイコンの基本サイズ（px） */
-const STALL_SIZE_VW = 50;  // 画面幅に対する割合（例: 14 => 画面幅の14%）
+const STALL_SIZE_VW = 45;  // Increase the percentage to make images larger
 
 /** 常時表示（芝生の左右） */
 const LEFT_STALL: Stall = {
-  name: "金魚すくい",
+  name: "きんぎょすくい",
   img: "/yatai/金魚掬い.PNG",
   playable: true,
-  href: "/game/kingyo-sukui",
+  href: "/game/kingyo-new",
   leftPct: 8,
   topPct: 18, // ground 内の上からの%（下に行くほど数値が大きい）
   aspectRatio: 708/908,
 };
 const RIGHT_STALL: Stall = {
-  name: "射的",
+  name: "しゃてき",
   img: "/yatai/射的.PNG",
   playable: true,
   href: "/game/syateki",
@@ -40,16 +41,16 @@ const RIGHT_STALL: Stall = {
 };
 
 // ステップ1で表示する左右の屋台（置き換え）
-const YOYO_LEFT: Stall = { name: "ヨーヨー釣り", img: "/yatai/ヨーヨーつり.PNG" };
-const WANAGE_RIGHT: Stall = { name: "わなげ", img: "/yatai/輪投.PNG" };
+const YAMANEKO_LEFT: Stall = { name: "やまねこしゃてき", img: "/yatai/やまねこしゃてき.png", href: "/game/yamaneko-syateki", playable: true, aspectRatio: 922/562 }; // Adjust aspect ratio to match original
+const BON_ODORI_RIGHT: Stall = { name: "", img: "/yatai/やぐら.png" };
 
 /** ↑キーで増える「次の屋台」（画像のみ） */
 const NEXT_STALLS: Stall[] = [
-  { name: "わなげ", img: "/yatai/wanage.png", leftPct: 40, topPct: 30 },
-  { name: "ヨーヨー釣り", img: "/yatai/yo-yo.png", leftPct: 60, topPct: 45 },
+  { name: "やまねこしゃてき", img: "/yatai/やまねこしゃてき.png", href: "/game/yamaneko-syateki", leftPct: 60, topPct: 45 },
+  { name: "", img: "/yatai/被写体2.png", leftPct: 40, topPct: 30 },
 ];
 
-export default function FestivalBackgroundWithYatai() {
+function FestivalBackgroundWithYataiInner() {
   const rootRef = useRef<HTMLDivElement>(null);
   // ペアインデックス（常に2つだけ表示）
   const [step, setStep] = useState(0);
@@ -79,7 +80,11 @@ export default function FestivalBackgroundWithYatai() {
     <div className="background-container" ref={rootRef} tabIndex={0} aria-label="お祭り会場 背景。上向き矢印キーで進みます。">
       {/* === 夜空と提灯 === */}
       <div className="sky">
-        <div className="lantern-area">
+        {/* 上半分：夜空 */}
+        <div className="sky-content">
+          {/* 提灯は削除 */}
+        </div>
+        <div className="lantern-area" style={{ position: "absolute", top: 0, width: "100%", display: "flex", justifyContent: "space-around", zIndex: 2 }}>
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} className="lantern" style={{ width: "15%", maxWidth: 120 }}>
               <svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg" aria-label="lantern">
@@ -121,8 +126,8 @@ export default function FestivalBackgroundWithYatai() {
           </>
         ) : (
           <>
-            <StallOnGround stall={YOYO_LEFT} side="left" />
-            <StallOnGround stall={WANAGE_RIGHT} side="right" />
+            <StallOnGround stall={YAMANEKO_LEFT} side="left" />
+            <StallOnGround stall={BON_ODORI_RIGHT} side="right" />
           </>
         )}
 
@@ -173,15 +178,16 @@ export default function FestivalBackgroundWithYatai() {
           z-index: 1;
           overflow: hidden;
         }
-        .lantern-area {
+        .sky-content {
           position: absolute;
           top: 0;
           left: 0;
           width: 100%;
+          height: 100%;
           display: flex;
-          justify-content: space-around;
-          padding: 0 5%;
-          box-sizing: border-box;
+          justify-content: center;
+          align-items: center;
+          pointer-events: none; /* 提灯はクリックを無効化 */
         }
         .lantern {
           position: relative;
@@ -254,6 +260,7 @@ export default function FestivalBackgroundWithYatai() {
 /** ground 内に屋台を描画する小コンポーネント */
 function StallOnGround({ stall, side }: { stall: Stall; side?: "left" | "right" }) {
   const sizeVw = STALL_SIZE_VW;
+  const ar = stall.aspectRatio ?? 1; // 横/縦
 
   const box = (
     <div className="box" aria-label={`${stall.name}${stall.playable ? "（あそべます）" : "（画像）"}`}>
@@ -261,10 +268,12 @@ function StallOnGround({ stall, side }: { stall: Stall; side?: "left" | "right" 
         <Image
           src={stall.img}
           alt={stall.name}
-          fill
+          width={Math.round((stall.aspectRatio ?? 1) * 1000)}
+          height={1000}
           sizes={`${sizeVw}vw`}
           className="img"
-          priority={stall.playable} // 主要2屋台は優先読み込み
+          priority={stall.playable}
+          style={{ width: `${sizeVw}vw`, height: "auto", display: "block" }}
         />
       </div>
       <div className="label">{stall.name}</div>
@@ -274,24 +283,19 @@ function StallOnGround({ stall, side }: { stall: Stall; side?: "left" | "right" 
           flex-direction: column;
           align-items: center;
           padding: 0;
-          background: transparent; /* 背景は透過 */
+          background: transparent;
           border: none;
           border-radius: 0;
           box-shadow: none;
           user-select: none;
         }
         .imgWrap {
-          position: relative;
-          width: ${sizeVw}vw; /* 左右で同じ幅 */
-          aspect-ratio: 1 / 1; /* 同じ正方形の枠に収める */
+          width: ${sizeVw}vw;
+          max-width: 720px;
         }
-        .img { object-fit: contain; }
-        .label {
-          margin-top: 6px;
-          font-size: 14px;
-          font-weight: 700;
-          color: #0c4a6e;
-          white-space: nowrap;
+        .img {
+          object-fit: contain; /* 念のため維持 */
+          display: block;
         }
       `}</style>
     </div>
@@ -332,3 +336,8 @@ function StallOnGround({ stall, side }: { stall: Stall; side?: "left" | "right" 
   }
   return <div style={wrapperStyle}>{box}</div>;
 }
+
+export default dynamic(
+  () => Promise.resolve(FestivalBackgroundWithYataiInner),
+  { ssr: false }
+);
