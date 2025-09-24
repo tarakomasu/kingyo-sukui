@@ -41,7 +41,7 @@ const RIGHT_STALL: Stall = {
 };
 
 // ステップ1で表示する左右の屋台（置き換え）
-const YAMANEKO_LEFT: Stall = { name: "やまねこしゃてき", img: "/yatai/やまねこしゃてき.png", href: "/game/yamaneko-syateki", playable: true, aspectRatio: 922/562 }; // Adjust aspect ratio to match original
+const YAMANEKO_LEFT: Stall = { name: "やまねこしゃてき", img: "/yatai/やまねこ.png", href: "/game/yamaneko-syateki", playable: true, aspectRatio: 922/562 }; // Adjust aspect ratio to match original
 const BON_ODORI_RIGHT: Stall = { name: "", img: "/yatai/やぐら.png" };
 
 /** ↑キーで増える「次の屋台」（画像のみ） */
