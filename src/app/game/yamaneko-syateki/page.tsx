@@ -5,6 +5,8 @@ import { PointerLockControls, OrbitControls } from "@react-three/drei";
 import { Physics, useBox, usePlane, useSphere } from "@react-three/cannon";
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { useGame } from "@/context/GameContext";
+import Toast from "@/components/Toast";
 
 type GameState = "TOP" | "PLAYING" | "PAUSED" | "GAMEOVER";
 type DistanceKey = "near" | "normal" | "far";
@@ -689,6 +691,7 @@ export default function Page() {
     const aimFov = useMemo(() => 75 / magnifications[magIndex], [magIndex, magnifications]);
     const [reloadNow, setReloadNow] = useState<number>(Date.now());
     const currentBulletSpeed = useMemo(() => (isDebug ? debugBulletSpeed : 800), [isDebug, debugBulletSpeed]);
+    const { insertUserScore, userName, userScoreRank, userScore } = useGame();
     const { recoilEnabled, recoilMagDeg, recoilSpeedDegPerSec } = useMemo(() => {
         if (gameMode === "debug") {
             return {
@@ -968,27 +971,23 @@ export default function Page() {
         if (gameMode === "score" && gameState === "GAMEOVER" && !scorePostedRef.current) {
             scorePostedRef.current = true;
             const gameTitle = scoreDistance === "long" ? "yamaneko-syateki-long" : "yamaneko-syateki-mid";
-            const payload = { user_name: "test", score: finalScore, game_title: gameTitle };
-            fetch("/api/scores", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            })
-                .then(async (res) => {
-                    if (!res.ok) {
-                        const t = await res.text().catch(() => "");
-                        throw new Error(t || `HTTP ${res.status}`);
-                    }
+            if (!userName) {
+                setSubmitMsg(null);
+                setSubmitErr("スコア送信に失敗しました（ユーザー名が未設定）");
+                return;
+            }
+            insertUserScore(gameTitle, finalScore)
+                .then(() => {
                     setSubmitErr(null);
                     setSubmitMsg("スコア送信に成功しました");
                     setTimeout(() => setSubmitMsg(null), 3000);
                 })
-                .catch((e) => {
+                .catch(() => {
                     setSubmitMsg(null);
                     setSubmitErr("スコア送信に失敗しました");
                 });
         }
-    }, [gameMode, gameState, finalScore, scoreDistance]);
+    }, [gameMode, gameState, finalScore, scoreDistance, insertUserScore, userName]);
 
     // Unlock cursor when not playing (TOP or GAMEOVER)
     useEffect(() => {
@@ -1122,20 +1121,7 @@ export default function Page() {
                 </div>
             )}
 
-            {(submitMsg || submitErr) && (
-                <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50">
-                    {submitMsg && (
-                        <div className="bg-emerald-600 text-white py-2 px-4 rounded-full shadow-lg mb-2">
-                            {submitMsg}
-                        </div>
-                    )}
-                    {submitErr && (
-                        <div className="bg-red-600 text-white py-2 px-4 rounded-full shadow-lg">
-                            {submitErr}
-                        </div>
-                    )}
-                </div>
-            )}
+            {/* Submission status moved to common Toast component */}
 
             {/* Reload indicator */}
             {gameState === "PLAYING" && reloadNow < reloadUntil && (
@@ -1235,9 +1221,31 @@ export default function Page() {
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 md:p-8 rounded-2xl shadow-lg border-4 border-yellow-300 text-center z-50 w-[90vw] max-w-[420px] break-words">
                     <h1 className="text-4xl md:text-5xl font-extrabold text-yellow-300 mb-2 [text-shadow:_3px_3px_6px_rgb(0_0_0_/_50%)]">結果</h1>
                     {allHit && <div className="text-xl md:text-2xl text-pink-300 my-2">タイムボーナス +{Math.ceil(timeBonusSecs * 50)}!</div>}
-                    <h2 className="text-2xl md:text-3xl mb-4">Final Score: <span>{finalScore}{scoreDistance === "long" ? " ×1.5" : ""}</span></h2>
+                    <h2 className="text-2xl md:text-3xl mb-4">今回のスコア: <span>{finalScore}{scoreDistance === "long" ? " ×1.5" : ""}</span></h2>
+                    <div className="text-lg md:text-xl mb-1">
+                        ベストスコア: {(() => {
+                            const gameId = scoreDistance === "long" ? "yamaneko-syateki-long" : "yamaneko-syateki-mid";
+                            const best = userScore[gameId];
+                            return typeof best === "number" ? best : "-";
+                        })()}
+                    </div>
+                    <div className="text-lg md:text-xl mb-4">
+                        順位: {(() => {
+                            const gameId = scoreDistance === "long" ? "yamaneko-syateki-long" : "yamaneko-syateki-mid";
+                            const r = userScoreRank[gameId];
+                            return r ? `#${r}` : "-";
+                        })()}
+                    </div>
                     <button onClick={returnToTitle} className="w-full p-3 md:p-4 mt-2 bg-yellow-400 hover:bg-yellow-500 text-sky-900 font-bold text-lg md:text-xl rounded-lg shadow-md transition-transform hover:scale-105">トップに戻る</button>
                 </div>
+            )}
+
+            {/* Toasts */}
+            {submitMsg && (
+                <Toast message={submitMsg} type="success" onClose={() => setSubmitMsg(null)} />
+            )}
+            {submitErr && (
+                <Toast message={submitErr} type="error" onClose={() => setSubmitErr(null)} />
             )}
 
             {/* Options (Pause) */}

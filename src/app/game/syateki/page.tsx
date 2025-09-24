@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { useGame } from "@/context/GameContext";
+import Toast from "@/components/Toast";
 import dynamic from "next/dynamic";
 
 /**
@@ -126,6 +128,42 @@ const ShootingGame: React.FC = () => {
   const [uiState, setUiState] = useState<{gameState:GameState; score:number; timeLeft:number; comboText:string}>(
     { gameState: "title", score: 0, timeLeft: config.GAME_TIME, comboText: "" }
   );
+
+  // --- Score submission via GameContext ---
+  const { insertUserScore, userName } = useGame();
+  const [submitMsg, setSubmitMsg] = useState<string | null>(null);
+  const [submitErr, setSubmitErr] = useState<string | null>(null);
+  const scorePostedRef = useRef(false);
+
+  // Reset post guard when starting/returning to playable states
+  useEffect(() => {
+    if (uiState.gameState === "title" || uiState.gameState === "playing") {
+      scorePostedRef.current = false;
+      setSubmitErr(null);
+    }
+  }, [uiState.gameState]);
+
+  // Post score once when result screen is shown
+  useEffect(() => {
+    if (uiState.gameState !== "result" || scorePostedRef.current) return;
+    scorePostedRef.current = true;
+    const gameTitle = "syateki";
+    if (!userName) {
+      setSubmitMsg(null);
+      setSubmitErr("スコア送信に失敗しました（ユーザー名が未設定）");
+      return;
+    }
+    insertUserScore(gameTitle, uiState.score)
+      .then(() => {
+        setSubmitErr(null);
+        setSubmitMsg("スコア送信に成功しました");
+        setTimeout(() => setSubmitMsg(null), 3000);
+      })
+      .catch(() => {
+        setSubmitMsg(null);
+        setSubmitErr("スコア送信に失敗しました");
+      });
+  }, [uiState.gameState, uiState.score, insertUserScore, userName]);
 
   // ---- p5 初期化（CSRのみ） ----
   useEffect(() => {
@@ -478,6 +516,13 @@ const ShootingGame: React.FC = () => {
         <div id="time-display" style={{ position:"absolute", top:20, right:40, zIndex:5, fontSize:60, fontWeight:"bold", color:"#fff", textShadow:"3px 3px 0 #000", visibility: uiState.gameState==="playing"?"visible":"hidden", pointerEvents:"none" }}>
           じかん: {uiState.timeLeft}
         </div>
+        {/* Toasts for submission status */}
+        {submitMsg && (
+          <Toast message={submitMsg} type="success" onClose={() => setSubmitMsg(null)} />
+        )}
+        {submitErr && (
+          <Toast message={submitErr} type="error" onClose={() => setSubmitErr(null)} />
+        )}
 
         {/* canvas host */}
         <div id="canvas-wrapper" ref={canvasParentRef} style={{ border:"2px solid #fff", boxShadow:"0 0 20px rgba(255,255,255,0.5)" }} />

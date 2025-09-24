@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useGame } from "@/context/GameContext";
+import Toast from "@/components/Toast";
 import { GameCanvas } from "./game/GameCanvas";
 
 const GAME_DURATION = 60; // seconds
@@ -159,6 +161,12 @@ export default function KingyoNewPage() {
   const [durability, setDurability] = useState(POI_DURABILITY_MAX);
   const [gameId, setGameId] = useState(1);
 
+  // --- Score submission via GameContext ---
+  const { insertUserScore, userName } = useGame();
+  const [submitMsg, setSubmitMsg] = useState<string | null>(null);
+  const [submitErr, setSubmitErr] = useState<string | null>(null);
+  const postedRef = useRef(false);
+
   // Effect to handle mobile viewport height
   useEffect(() => {
     const setVh = () => {
@@ -186,6 +194,36 @@ export default function KingyoNewPage() {
 
     return () => clearInterval(timer);
   }, [gameState, timeLeft]);
+
+  // Reset post guard and clear messages when transitioning to non-result states
+  useEffect(() => {
+    if (gameState === "start" || gameState === "playing") {
+      postedRef.current = false;
+      setSubmitErr(null);
+    }
+  }, [gameState]);
+
+  // Post score once when finished
+  useEffect(() => {
+    if (gameState !== "finished" || postedRef.current) return;
+    postedRef.current = true;
+    const gameTitle = "kingyo-sukui";
+    if (!userName) {
+      setSubmitMsg(null);
+      setSubmitErr("スコア送信に失敗しました（ユーザー名が未設定）");
+      return;
+    }
+    insertUserScore(gameTitle, score)
+      .then(() => {
+        setSubmitErr(null);
+        setSubmitMsg("スコア送信に成功しました");
+        setTimeout(() => setSubmitMsg(null), 3000);
+      })
+      .catch(() => {
+        setSubmitMsg(null);
+        setSubmitErr("スコア送信に失敗しました");
+      });
+  }, [gameState, score, insertUserScore, userName]);
 
   const startGame = useCallback(() => {
     setScore(0);
@@ -268,6 +306,13 @@ export default function KingyoNewPage() {
           />
         )}
       </div>
+      {/* Toasts for score submission status */}
+      {submitMsg && (
+        <Toast message={submitMsg} type="success" onClose={() => setSubmitMsg(null)} />
+      )}
+      {submitErr && (
+        <Toast message={submitErr} type="error" onClose={() => setSubmitErr(null)} />
+      )}
     </div>
   );
 }
