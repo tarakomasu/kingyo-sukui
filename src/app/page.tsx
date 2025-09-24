@@ -25,7 +25,7 @@ const LEFT_STALL: Stall = {
   name: "きんぎょすくい",
   img: "/yatai/金魚掬い.PNG",
   playable: true,
-  href: "/game/kingyo-sukui",
+  href: "/game/kingyo-new",
   leftPct: 8,
   topPct: 18, // ground 内の上からの%（下に行くほど数値が大きい）
   aspectRatio: 708/908,
@@ -42,7 +42,7 @@ const RIGHT_STALL: Stall = {
 
 // ステップ1で表示する左右の屋台（置き換え）
 const YAMANEKO_LEFT: Stall = { name: "やまねこしゃてき", img: "/yatai/やまねこしゃてき.png", href: "/game/yamaneko-syateki", playable: true, aspectRatio: 922/562 }; // Adjust aspect ratio to match original
-const BON_ODORI_RIGHT: Stall = { name: "盆踊り", img: "/yatai/やぐら.png" };
+const BON_ODORI_RIGHT: Stall = { name: "", img: "/yatai/やぐら.png" };
 
 /** ↑キーで増える「次の屋台」（画像のみ） */
 const NEXT_STALLS: Stall[] = [
