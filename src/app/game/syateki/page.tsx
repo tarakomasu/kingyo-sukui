@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useGame } from "@/context/GameContext";
 import Toast from "@/components/Toast";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 
 /**
  * ShootingGame.tsx
@@ -537,8 +538,23 @@ const ShootingGame: React.FC = () => {
         {/* title overlay */}
         {uiState.gameState === "title" && (
           <Overlay>
-            <h1>わくわく！<br/>射的ゲーム</h1>
+            <h1>わくわく！<br/>しゃてきゲーム</h1>
             <Btn onClick={startFromTitle}>すたーと</Btn> 
+            <Link href="/" style={{
+  display: "inline-block",
+  marginTop: "20px",
+  padding: "10px 20px",
+  backgroundColor: "#3498db",
+  color: "#fff",
+  textDecoration: "none",
+  borderRadius: "5px",
+  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+  transition: "background-color 0.3s ease",
+}}
+  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#2980b9")}
+  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#3498db")}>
+  ホームへ
+</Link>
           </Overlay>
         )}
 
@@ -557,6 +573,7 @@ const ShootingGame: React.FC = () => {
           <Overlay>
             <h1>ちょっと きゅうけい</h1>
             <Btn onClick={resume}>つづける</Btn>
+            <Link href="/">ホームへ</Link>
             <Btn style={{ background:'#e74c3c', borderColor:'#c0392b', boxShadow:'0 10px 0 #962d22' }} onClick={backToTitle}>たいとるへ</Btn>
           </Overlay>
         )}
