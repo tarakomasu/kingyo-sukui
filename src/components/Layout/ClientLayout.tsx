@@ -1,21 +1,24 @@
-"use client";
+'use client';
 
 import { usePathname } from "next/navigation";
 import RankingFab from "@/components/RankingFab";
 import UserNameModal from "@/components/UserNameModal";
+import { useState, useEffect } from "react";
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isGamePage = pathname.startsWith("/game/kingyo-new/game");
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const isGamePage = pathname.startsWith("/game/");
 
   return (
     <>
       <UserNameModal />
-      {!isGamePage && <RankingFab />}
+      {isMounted && !isGamePage && <RankingFab />}
       {children}
     </>
   );
