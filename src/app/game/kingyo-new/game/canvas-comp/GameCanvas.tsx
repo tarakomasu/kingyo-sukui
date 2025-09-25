@@ -1,10 +1,12 @@
 export type Vector2 = { x: number; y: number };
 
+import { FishType, FISH_TYPES, getRandomFishType } from "../fish";
+
 export type Fish = {
   id: string;
   position: Vector2;
   velocity: Vector2;
-  radius: number;
+  type: FishType;
 };
 
 export type Ripple = { x: number; y: number; t: number; life: number };
@@ -15,10 +17,11 @@ export type GameConfig = {
   fishSpeedMin: number;
   fishSpeedMax: number;
   poiRadius: number;
+  poiHitboxRadius: number;
 };
 
 export type GameCanvasProps = {
-  onCatch: () => void;
+  onCatch: (score: number) => void;
   onMiss: () => void;
   config: GameConfig;
   isPlaying: boolean;
@@ -30,7 +33,7 @@ export type GameCanvasProps = {
 import React, { useEffect, useRef, useState, useCallback } from "react";
 
 const POI_HANDLE_HEIGHT = 80;
-const POI_DURABILITY_MAX = 1000;
+const POI_DURABILITY_MAX = 2000;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -65,9 +68,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const isSunkRef = useRef<boolean>(false);
   const poiDurabilityRef = useRef<number>(POI_DURABILITY_MAX);
   const bottomImageRef = useRef<HTMLImageElement | null>(null);
-  const fishImageRef = useRef<HTMLImageElement | null>(null);
+  const fishImagesRef = useRef<Record<string, HTMLImageElement>>({});
   const [isBottomImageLoaded, setIsBottomImageLoaded] = useState(false);
-  const [isFishImageLoaded, setIsFishImageLoaded] = useState(false);
+  const [areFishImagesLoaded, setAreFishImagesLoaded] = useState(false);
 
   // Stabilize callbacks
   const onCatchRef = useRef(onCatch);
@@ -92,12 +95,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       setIsBottomImageLoaded(true);
     };
 
-    const fishImg = new Image();
-    fishImg.src = "/kingyo-sukui/kingyos/rare1.png";
-    fishImg.onload = () => {
-      fishImageRef.current = fishImg;
-      setIsFishImageLoaded(true);
-    };
+    let loadedCount = 0;
+    FISH_TYPES.forEach((fishType) => {
+      const img = new Image();
+      img.src = fishType.src;
+      img.onload = () => {
+        fishImagesRef.current[fishType.name] = img;
+        loadedCount++;
+        if (loadedCount === FISH_TYPES.length) {
+          setAreFishImagesLoaded(true);
+        }
+      };
+    });
   }, []);
 
   const drawBackground = useCallback(() => {
@@ -183,7 +192,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
   // Spawning and Main Game Loop
   useEffect(() => {
-    if (!isFishImageLoaded) return;
+    if (!areFishImagesLoaded) return;
 
     const canvas = gameCanvasRef.current;
     if (!canvas) return;
@@ -201,18 +210,27 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (fishRef.current.length >= config.maxFish) return;
       if (now - lastSpawnRef.current < config.spawnIntervalMs) return;
       lastSpawnRef.current = now;
+
+      const fishType = getRandomFishType();
+      if (fishType.name === "rare") {
+        console.log("A 'rare' fish has spawned!");
+      }
+
       const side = Math.random() < 0.5 ? "left" : "right";
       const y = randomRange(80, rect.height - 80);
-      const speed =
+      const speed = 
         randomRange(config.fishSpeedMin, config.fishSpeedMax) *
         (side === "left" ? 1 : -1);
-      const radius = randomRange(25, 40);
-      const x = side === "left" ? -radius - 10 : rect.width + radius + 10;
+      const x =
+        side === "left"
+          ? -fishType.radius - 10
+          : rect.width + fishType.radius + 10;
+
       fishRef.current.push({
         id: Math.random().toString(36).slice(2),
         position: { x, y },
         velocity: { x: speed, y: randomRange(-20, 20) },
-        radius,
+        type: fishType,
       });
     }
 
@@ -253,7 +271,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         })
         .filter(
           (f) =>
-            f.position.x > -100 && f.position.x < canvasEl.width / dpr + 100
+            f.position.x > -f.type.radius - 20 &&
+            f.position.x < canvasEl.width / dpr + f.type.radius + 20
         );
 
       ripplesRef.current.forEach((r) => (r.t += dt));
@@ -287,22 +306,22 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctxEl.stroke();
       });
 
-      if (fishImageRef.current) {
-        for (const f of fishRef.current) {
-          ctxEl.save();
-          ctxEl.translate(f.position.x, f.position.y);
-          // 画像の基準向きが「真下」のため、進行方向角から π/2 を減算して合わせる
-          const angle = Math.atan2(f.velocity.y, f.velocity.x) - Math.PI / 2;
-          ctxEl.rotate(angle);
-          ctxEl.drawImage(
-            fishImageRef.current,
-            -f.radius,
-            -f.radius,
-            f.radius * 2,
-            f.radius * 2
-          );
-          ctxEl.restore();
-        }
+      for (const f of fishRef.current) {
+        const img = fishImagesRef.current[f.type.name];
+        if (!img) continue;
+
+        ctxEl.save();
+        ctxEl.translate(f.position.x, f.position.y);
+        const angle = Math.atan2(f.velocity.y, f.velocity.x) - Math.PI / 2;
+        ctxEl.rotate(angle);
+        ctxEl.drawImage(
+          img,
+          -f.type.radius,
+          -f.type.radius,
+          f.type.radius * 2,
+          f.type.radius * 2
+        );
+        ctxEl.restore();
       }
 
       if (pointer.x > -1000) {
@@ -368,7 +387,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [config, pointer, drawBackground, isFishImageLoaded, isPlaying]);
+  }, [config, pointer, drawBackground, areFishImagesLoaded, isPlaying]);
 
   function addRipple(x: number, y: number) {
     ripplesRef.current.push({ x, y, t: 0, life: 2.5 });
@@ -421,7 +440,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             const fishCaught: { fish: Fish; distance: number }[] = [];
             fishRef.current.forEach((f) => {
               const distance = length(f.position, poiPaperCenter);
-              if (distance <= config.poiRadius) {
+              if (distance <= config.poiHitboxRadius) {
                 fishCaught.push({ fish: f, distance });
               }
             });
@@ -431,22 +450,25 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             );
 
             if (fishCaught.length > 0) {
-              let totalDamage = 0;
-              fishCaught.forEach(({ fish, distance }) => {
-                const baseDamage = 10; // This can be adjusted per fish type later
-                const damage = baseDamage * (3 - 2 * (distance / config.poiRadius));
-                totalDamage += damage;
+              const damages = fishCaught.map(({ fish, distance }) => {
+                const baseDamage = fish.type.baseDamage;
+                return (
+                  baseDamage * (3 - 2 * (distance / config.poiHitboxRadius))
+                );
+              });
 
-                const catchQuality = distance / config.poiRadius;
+              const maxDamage = Math.max(...damages);
+              poiDurabilityRef.current -= maxDamage;
+
+              fishCaught.forEach(({ fish, distance }) => {
+                const catchQuality = distance / config.poiHitboxRadius;
                 if (catchQuality >= 0.7) {
                   onCatchEffectRef.current("職人級");
                 } else if (catchQuality >= 0.3) {
                   onCatchEffectRef.current("上手い");
                 }
-
-                onCatchRef.current();
+                onCatchRef.current(fish.type.score);
               });
-              poiDurabilityRef.current -= totalDamage;
             } else {
               onMissRef.current();
             }

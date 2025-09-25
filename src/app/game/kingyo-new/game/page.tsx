@@ -7,7 +7,7 @@ import { GameCanvas } from "./canvas-comp/GameCanvas";
 import { useRouter } from "next/navigation";
 
 const GAME_DURATION = 60; // seconds
-const POI_DURABILITY_MAX = 1000;
+const POI_DURABILITY_MAX = 2000;
 
 // --- Components ---
 
@@ -277,7 +277,7 @@ export default function KingyoNewPage() {
         <GameCanvas
           key={gameId}
           isPlaying={gameState === "playing"}
-          onCatch={() => setScore((s) => s + 100)}
+          onCatch={(fishScore) => setScore((s) => s + fishScore)}
           onMiss={() => {}}
           onDurabilityChange={(d) => setDurability(Math.round(d))}
           onPoiBreak={handlePoiBreak}
@@ -288,6 +288,7 @@ export default function KingyoNewPage() {
             fishSpeedMin: 40,
             fishSpeedMax: 120,
             poiRadius: 60,
+            poiHitboxRadius: 65,
           }}
         />
         {gameState === "start" && (
