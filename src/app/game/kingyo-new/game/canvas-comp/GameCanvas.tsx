@@ -24,12 +24,13 @@ export type GameCanvasProps = {
   isPlaying: boolean;
   onDurabilityChange: (durability: number) => void;
   onPoiBreak: () => void;
+  onCatchEffect: (effect: string) => void;
 };
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 
 const POI_HANDLE_HEIGHT = 80;
-const POI_DURABILITY_MAX = 100;
+const POI_DURABILITY_MAX = 1000;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -52,6 +53,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   isPlaying,
   onDurabilityChange,
   onPoiBreak,
+  onCatchEffect,
 }) => {
   const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -72,12 +74,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const onMissRef = useRef(onMiss);
   const onDurabilityChangeRef = useRef(onDurabilityChange);
   const onPoiBreakRef = useRef(onPoiBreak);
+  const onCatchEffectRef = useRef(onCatchEffect);
   useEffect(() => {
     onCatchRef.current = onCatch;
     onMissRef.current = onMiss;
     onDurabilityChangeRef.current = onDurabilityChange;
     onPoiBreakRef.current = onPoiBreak;
-  }, [onCatch, onMiss, onDurabilityChange, onPoiBreak]);
+    onCatchEffectRef.current = onCatchEffect;
+  }, [onCatch, onMiss, onDurabilityChange, onPoiBreak, onCatchEffect]);
 
   // Load images
   useEffect(() => {
@@ -89,7 +93,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
 
     const fishImg = new Image();
-    fishImg.src = "/kingyo-sukui/kingyos/gpt-kingyo.png";
+    fishImg.src = "/kingyo-sukui/kingyos/rare1.png";
     fishImg.onload = () => {
       fishImageRef.current = fishImg;
       setIsFishImageLoaded(true);
@@ -274,7 +278,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       ripplesRef.current.forEach((r) => {
         const age = r.t;
-        const radius = age * 90;
+        const radius = Math.max(0, age * 90);
         const alpha = Math.max(0, 0.35 * (1 - age / r.life));
         ctxEl.beginPath();
         ctxEl.arc(r.x, r.y, radius, 0, Math.PI * 2);
@@ -414,19 +418,35 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               x: pointer.x,
               y: pointer.y - config.poiRadius - POI_HANDLE_HEIGHT,
             };
-            const fishCaught = fishRef.current.filter((f) => {
-              const isHit =
-                length(f.position, poiPaperCenter) <=
-                f.radius + config.poiRadius;
-              return isHit;
+            const fishCaught: { fish: Fish; distance: number }[] = [];
+            fishRef.current.forEach((f) => {
+              const distance = length(f.position, poiPaperCenter);
+              if (distance <= config.poiRadius) {
+                fishCaught.push({ fish: f, distance });
+              }
             });
+
             fishRef.current = fishRef.current.filter(
-              (f) => !fishCaught.includes(f)
+              (f) => !fishCaught.some((caught) => caught.fish.id === f.id)
             );
 
             if (fishCaught.length > 0) {
-              poiDurabilityRef.current -= fishCaught.length * 10;
-              fishCaught.forEach(() => onCatchRef.current());
+              let totalDamage = 0;
+              fishCaught.forEach(({ fish, distance }) => {
+                const baseDamage = 10; // This can be adjusted per fish type later
+                const damage = baseDamage * (3 - 2 * (distance / config.poiRadius));
+                totalDamage += damage;
+
+                const catchQuality = distance / config.poiRadius;
+                if (catchQuality >= 0.7) {
+                  onCatchEffectRef.current("職人級");
+                } else if (catchQuality >= 0.3) {
+                  onCatchEffectRef.current("上手い");
+                }
+
+                onCatchRef.current();
+              });
+              poiDurabilityRef.current -= totalDamage;
             } else {
               onMissRef.current();
             }
