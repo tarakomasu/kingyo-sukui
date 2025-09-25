@@ -1002,10 +1002,11 @@ export default function Page() {
     }, [gameState]);
 
     return (
-        <div id="yamaneko-shooter" className="relative w-screen h-[100dvh] bg-black overflow-hidden">
+        <div id="yamaneko-shooter" className="relative w-screen h-[100dvh] bg-[#101030] overflow-hidden">
             <Canvas shadows dpr={[1, 1.75]} camera={{ fov: 75, position: [0, 1.7, 10], far: 800 }} gl={{ antialias: true }}>
-                <color attach="background" args={[0x000020]} />
-                <fog attach="fog" args={[0x000020, 0, 800]} />
+                {/* 背景色を少し明るく (元: 0x000020) */}
+                <color attach="background" args={[0x202040]} />
+                <fog attach="fog" args={[0x202040, 0, 800]} />
                 <Physics gravity={[0, -9.82, 0]} allowSleep>
                     <Ground />
                     <EnvForest />
@@ -1250,105 +1251,108 @@ export default function Page() {
 
             {/* Options (Pause) */}
             {gameState === "PAUSED" && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 rounded-2xl shadow-lg border-4 border-yellow-300 text-left z-50 w-[90vw] max-w-[420px] max-h-[80dvh] overflow-y-auto break-words">
-                    <h2 className="text-2xl md:text-3xl font-bold text-center mb-4">オプション</h2>
-                    {gameMode === "free" && (
-                        <div className="mb-5">
-                            <label className="block mb-2 font-bold">屋台との距離</label>
-                            <div className="flex justify-center gap-2">
-                                <button onClick={() => { setFreeDistance("mid"); setResetKey((k) => k + 1); }} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "mid" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>中（200m）</button>
-                                <button onClick={() => { setFreeDistance("long"); setResetKey((k) => k + 1); }} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "long" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>遠（400m）</button>
-                            </div>
-                        </div>
-                    )}
-                    {gameMode === "free" && (
-                        <div className="mb-5">
-                            <label className="block mb-2 font-bold">風の影響</label>
-                            <div className="flex justify-center gap-2">
-                                <button onClick={() => setWindEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
-                                <button onClick={() => setWindEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
-                            </div>
-                        </div>
-                    )}
-                    {gameMode === "free" && (
-                        <div className="mb-5">
-                            <label className="block mb-2 font-bold">反動</label>
-                            <div className="flex justify-center gap-2">
-                                <button onClick={() => setFreeRecoilEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${freeRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
-                                <button onClick={() => setFreeRecoilEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!freeRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
-                            </div>
-                        </div>
-                    )}
-                    {isDebug && (
-                        <div className="mb-5">
-                            <label className="block mb-2 font-bold">風の影響</label>
-                            <div className="flex justify-center gap-2">
-                                <button onClick={() => setWindEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
-                                <button onClick={() => setWindEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
-                            </div>
-                            <div className="mt-4">
-                                <label className="block mb-2 font-bold">屋台との距離（m）</label>
-                                <input type="number" min={50} max={600} step={10} value={debugDistanceM} onChange={(e) => { const v = Number(e.target.value); setDebugDistanceM(v); if (!Number.isNaN(v)) setResetKey((k) => k + 1); }} className="w-full text-black rounded px-2 py-1" />
-                                <div className="text-sm opacity-80 mt-1">現在: {debugDistanceM} m</div>
-                            </div>
-                            <div className="mt-4">
-                                <label className="block mb-2 font-bold">弾丸初速（m/s）</label>
-                                <input type="number" min={50} max={1200} step={10} value={debugBulletSpeed} onChange={(e) => setDebugBulletSpeed(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
-                                <div className="text-sm opacity-80 mt-1">現在: {debugBulletSpeed} m/s</div>
-                            </div>
-                            <div className="mt-6 border-t border-white/20 pt-4">
-                                <label className="block mb-2 font-bold">反動（デバッグ）</label>
-                                <div className="flex justify-center gap-2 mb-3">
-                                    <button onClick={() => setDebugRecoilEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${debugRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
-                                    <button onClick={() => setDebugRecoilEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!debugRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-sky-800/90 text-white p-6 rounded-2xl shadow-lg border-4 border-yellow-300 text-left z-50 w-[90vw] max-w-[420px] max-h-[80dvh] flex flex-col break-words">
+                    <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+                        <h2 className="text-2xl md:text-3xl font-bold text-center mb-4">オプション</h2>
+                        {gameMode === "free" && (
+                            <div className="mb-5">
+                                <label className="block mb-2 font-bold">屋台との距離</label>
+                                <div className="flex justify-center gap-2">
+                                    <button onClick={() => { setFreeDistance("mid"); setResetKey((k) => k + 1); }} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "mid" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>中（200m）</button>
+                                    <button onClick={() => { setFreeDistance("long"); setResetKey((k) => k + 1); }} className={`flex-1 p-2 border border-yellow-300 rounded ${freeDistance === "long" ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>遠（400m）</button>
                                 </div>
-                                <div className={`space-y-3 ${debugRecoilEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
-                                    <div>
-                                        <div className="flex justify-between text-sm">
-                                            <span>跳ね上がりの大きさ</span>
-                                            <span>{debugRecoilMagnitudeDeg.toFixed(2)}°</span>
-                                        </div>
-                                        <input type="range" min={0} max={10} step={0.1} value={debugRecoilMagnitudeDeg} onChange={(e) => setDebugRecoilMagnitudeDeg(parseFloat(e.target.value))} className="w-full" />
+                            </div>
+                        )}
+                        {gameMode === "free" && (
+                            <div className="mb-5">
+                                <label className="block mb-2 font-bold">風の影響</label>
+                                <div className="flex justify-center gap-2">
+                                    <button onClick={() => setWindEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
+                                    <button onClick={() => setWindEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
+                                </div>
+                            </div>
+                        )}
+                        {gameMode === "free" && (
+                            <div className="mb-5">
+                                <label className="block mb-2 font-bold">反動</label>
+                                <div className="flex justify-center gap-2">
+                                    <button onClick={() => setFreeRecoilEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${freeRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
+                                    <button onClick={() => setFreeRecoilEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!freeRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
+                                </div>
+                            </div>
+                        )}
+                        {isDebug && (
+                            <div className="mb-5">
+                                <label className="block mb-2 font-bold">風の影響</label>
+                                <div className="flex justify-center gap-2">
+                                    <button onClick={() => setWindEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
+                                    <button onClick={() => setWindEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!windEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
+                                </div>
+                                <div className="mt-4">
+                                    <label className="block mb-2 font-bold">屋台との距離（m）</label>
+                                    <input type="number" min={50} max={600} step={10} value={debugDistanceM} onChange={(e) => { const v = Number(e.target.value); setDebugDistanceM(v); if (!Number.isNaN(v)) setResetKey((k) => k + 1); }} className="w-full text-black rounded px-2 py-1" />
+                                    <div className="text-sm opacity-80 mt-1">現在: {debugDistanceM} m</div>
+                                </div>
+                                <div className="mt-4">
+                                    <label className="block mb-2 font-bold">弾丸初速（m/s）</label>
+                                    <input type="number" min={50} max={1200} step={10} value={debugBulletSpeed} onChange={(e) => setDebugBulletSpeed(Number(e.target.value))} className="w-full text-black rounded px-2 py-1" />
+                                    <div className="text-sm opacity-80 mt-1">現在: {debugBulletSpeed} m/s</div>
+                                </div>
+                                <div className="mt-6 border-t border-white/20 pt-4">
+                                    <label className="block mb-2 font-bold">反動（デバッグ）</label>
+                                    <div className="flex justify-center gap-2 mb-3">
+                                        <button onClick={() => setDebugRecoilEnabled(true)} className={`flex-1 p-2 border border-yellow-300 rounded ${debugRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オン</button>
+                                        <button onClick={() => setDebugRecoilEnabled(false)} className={`flex-1 p-2 border border-yellow-300 rounded ${!debugRecoilEnabled ? "bg-yellow-300 text-sky-900" : "bg-sky-900"}`}>オフ</button>
                                     </div>
-                                    <div>
-                                        <div className="flex justify-between text-sm">
-                                            <span>跳ね上がりの速度</span>
-                                            <span>{debugRecoilSpeedDegPerSec.toFixed(0)} °/s</span>
+                                    <div className={`space-y-3 ${debugRecoilEnabled ? '' : 'opacity-50 pointer-events-none'}`}>
+                                        <div>
+                                            <div className="flex justify-between text-sm">
+                                                <span>跳ね上がりの大きさ</span>
+                                                <span>{debugRecoilMagnitudeDeg.toFixed(2)}°</span>
+                                            </div>
+                                            <input type="range" min={0} max={10} step={0.1} value={debugRecoilMagnitudeDeg} onChange={(e) => setDebugRecoilMagnitudeDeg(parseFloat(e.target.value))} className="w-full" />
                                         </div>
-                                        <input type="range" min={10} max={100} step={1} value={debugRecoilSpeedDegPerSec} onChange={(e) => setDebugRecoilSpeedDegPerSec(parseFloat(e.target.value))} className="w-full" />
+                                        <div>
+                                            <div className="flex justify-between text-sm">
+                                                <span>跳ね上がりの速度</span>
+                                                <span>{debugRecoilSpeedDegPerSec.toFixed(0)} °/s</span>
+                                            </div>
+                                            <input type="range" min={10} max={100} step={1} value={debugRecoilSpeedDegPerSec} onChange={(e) => setDebugRecoilSpeedDegPerSec(parseFloat(e.target.value))} className="w-full" />
+                                        </div>
                                     </div>
                                 </div>
+                                <button onClick={() => setResetKey((k) => k + 1)} className="mt-4 w-full p-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg shadow-md">標的をリセット</button>
                             </div>
-                            <button onClick={() => setResetKey((k) => k + 1)} className="mt-4 w-full p-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg shadow-md">標的をリセット</button>
+                        )}
+                        <div className="mb-5">
+                            <label className="block mb-2 font-bold">ゼロイン（照準補正）</label>
+                            <div className="space-y-3">
+                                <div>
+                                    <div className="flex justify-between text-sm">
+                                        <span>エレベーション（上下）</span>
+                                        <span>{zeroElevDeg.toFixed(2)}°</span>
+                                    </div>
+                                    <input type="range" min={-0.5} max={0.5} step={0.05} value={zeroElevDeg} onChange={(e) => setZeroElevDeg(parseFloat(e.target.value))} className="w-full" />
+                                </div>
+                                <div>
+                                    <div className="flex justify-between text-sm">
+                                        <span>ウィンデージ（左右）</span>
+                                        <span>{zeroWindDeg.toFixed(2)}°</span>
+                                    </div>
+                                    <input type="range" min={-0.5} max={0.5} step={0.05} value={zeroWindDeg} onChange={(e) => setZeroWindDeg(parseFloat(e.target.value))} className="w-full" />
+                                </div>
+                                <button onClick={() => { setZeroElevDeg(-0.1); setZeroWindDeg(0); }} className="mt-2 w-full p-2 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg">ゼロインのリセット</button>
+                            </div>
                         </div>
-                    )}
-                    <div className="mb-5">
-                        <label className="block mb-2 font-bold">ゼロイン（照準補正）</label>
-                        <div className="space-y-3">
-                            <div>
-                                <div className="flex justify-between text-sm">
-                                    <span>エレベーション（上下）</span>
-                                    <span>{zeroElevDeg.toFixed(2)}°</span>
-                                </div>
-                                <input type="range" min={-0.5} max={0.5} step={0.05} value={zeroElevDeg} onChange={(e) => setZeroElevDeg(parseFloat(e.target.value))} className="w-full" />
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-sm">
-                                    <span>ウィンデージ（左右）</span>
-                                    <span>{zeroWindDeg.toFixed(2)}°</span>
-                                </div>
-                                <input type="range" min={-0.5} max={0.5} step={0.05} value={zeroWindDeg} onChange={(e) => setZeroWindDeg(parseFloat(e.target.value))} className="w-full" />
-                            </div>
-                            <button onClick={() => { setZeroElevDeg(-0.1); setZeroWindDeg(0); }} className="mt-2 w-full p-2 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg">リセット</button>
+                        <div className="mb-5">
+                            <label className="block mb-2 font-bold">感度: <span>{sensitivity.toFixed(2)}</span></label>
+                            <input type="range" min={0.05} max={2.0} step={0.05} value={sensitivity} onChange={(e) => setSensitivity(parseFloat(e.target.value))} className="w-full" />
                         </div>
                     </div>
-                    <div className="mb-5">
-                        <label className="block mb-2 font-bold">感度: <span>{sensitivity.toFixed(2)}</span></label>
-                        <input type="range" min={0.05} max={2.0} step={0.05} value={sensitivity} onChange={(e) => setSensitivity(parseFloat(e.target.value))} className="w-full" />
+                    <div className="pt-3 mt-2 border-t border-white/20 space-y-2">
+                        <button onClick={() => setGameState("PLAYING")} className="w-full p-3 bg-green-500 hover:bg-green-600 text-white font-bold text-lg rounded-lg shadow-md">ゲームに戻る</button>
+                        <button onClick={returnToTitle} className="w-full p-3 bg-red-500 hover:bg-red-600 text-white font-bold text-lg rounded-lg shadow-md">タイトルに戻る</button>
                     </div>
-                    
-                    <button onClick={() => setGameState("PLAYING")} className="w-full p-3 mt-2 bg-green-500 hover:bg-green-600 text-white font-bold text-lg rounded-lg shadow-md">ゲームに戻る</button>
-                    <button onClick={returnToTitle} className="w-full p-3 mt-2 bg-red-500 hover:bg-red-600 text-white font-bold text-lg rounded-lg shadow-md">タイトルに戻る</button>
                 </div>
             )}
 
